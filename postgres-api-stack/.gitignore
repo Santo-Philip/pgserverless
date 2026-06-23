@@ -1,0 +1,22 @@
+# Environment
+.env
+
+# PostgreSQL data
+postgres/data/
+
+# Backups
+backups/
+*.sql.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
