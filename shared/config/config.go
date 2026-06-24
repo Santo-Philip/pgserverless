@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -79,7 +81,7 @@ type MonitoringConfig struct {
 }
 
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		AppName:  getEnv("APP_NAME", "nexbic-platform"),
 		AppEnv:   getEnv("APP_ENV", "development"),
 		LogLevel: getEnv("LOG_LEVEL", "info"),
@@ -90,25 +92,6 @@ func Load() *Config {
 			WriteTimeout:    getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
 			ShutdownTimeout: getEnvDuration("SERVER_SHUTDOWN_TIMEOUT", 10*time.Second),
 			CORSOrigins:     getEnvSlice("CORS_ORIGINS", []string{"*"}),
-		},
-		Database: DatabaseConfig{
-			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnvInt("DB_PORT", 5432),
-			User:            getEnv("DB_USER", "api_admin"),
-			Password:        getEnv("DB_PASSWORD", ""),
-			DBName:          getEnv("DB_NAME", "postgres_api"),
-			SSLMode:         getEnv("DB_SSLMODE", "disable"),
-			MaxConns:        getEnvInt("DB_MAX_CONNS", 20),
-			MinConns:        getEnvInt("DB_MIN_CONNS", 2),
-			MaxConnLifetime: getEnvDuration("DB_MAX_CONN_LIFETIME", 30*time.Minute),
-			MaxConnIdleTime: getEnvDuration("DB_MAX_CONN_IDLE_TIME", 10*time.Minute),
-			HealthCheckPeriod: getEnvDuration("DB_HEALTH_CHECK_PERIOD", 1*time.Minute),
-		},
-		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnvInt("REDIS_PORT", 6379),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
 			Secret:      getEnv("JWT_SECRET", "change-me-secret"),
@@ -122,18 +105,88 @@ func Load() *Config {
 			AdminURL: getEnv("POSTGREST_ADMIN_URL", "http://localhost:3001"),
 			Timeout:  getEnvDuration("POSTGREST_TIMEOUT", 30*time.Second),
 		},
-		Asynq: AsynqConfig{
-			Concurrency: getEnvInt("ASYNQ_CONCURRENCY", 10),
-			Host:        getEnv("ASYNQ_HOST", "localhost"),
-			Port:        getEnvInt("ASYNQ_PORT", 6379),
-			Password:    getEnv("ASYNQ_PASSWORD", ""),
-			DB:          getEnvInt("ASYNQ_DB", 1),
-		},
 		Monitoring: MonitoringConfig{
 			Enabled:    getEnvBool("MONITORING_ENABLED", true),
 			MetricPath: getEnv("METRIC_PATH", "/metrics"),
 		},
 	}
+
+	parseDatabaseURL(cfg)
+	parseRedisURL(cfg)
+	parseAsynqConfig(cfg)
+
+	return cfg
+}
+
+func parseDatabaseURL(cfg *Config) {
+	if ds := getEnv("DATABASE_URL", ""); ds != "" {
+		u, err := url.Parse(ds)
+		if err != nil {
+			return
+		}
+		if u.User != nil {
+			cfg.Database.User = u.User.Username()
+			if pw, ok := u.User.Password(); ok {
+				cfg.Database.Password = pw
+			}
+		}
+		cfg.Database.Host = u.Hostname()
+		cfg.Database.Port, _ = strconv.Atoi(portFromHost(u.Host))
+		cfg.Database.DBName = strings.TrimPrefix(u.Path, "/")
+		if ssl := u.Query().Get("sslmode"); ssl != "" {
+			cfg.Database.SSLMode = ssl
+		}
+		return
+	}
+	cfg.Database.Host = getEnv("DB_HOST", "localhost")
+	cfg.Database.Port = getEnvInt("DB_PORT", 5432)
+	cfg.Database.User = getEnv("DB_USER", "api_admin")
+	cfg.Database.Password = getEnv("DB_PASSWORD", "")
+	cfg.Database.DBName = getEnv("DB_NAME", "postgres_api")
+	cfg.Database.SSLMode = getEnv("DB_SSLMODE", "disable")
+	cfg.Database.MaxConns = getEnvInt("DB_MAX_CONNS", 20)
+	cfg.Database.MinConns = getEnvInt("DB_MIN_CONNS", 2)
+	cfg.Database.MaxConnLifetime = getEnvDuration("DB_MAX_CONN_LIFETIME", 30*time.Minute)
+	cfg.Database.MaxConnIdleTime = getEnvDuration("DB_MAX_CONN_IDLE_TIME", 10*time.Minute)
+	cfg.Database.HealthCheckPeriod = getEnvDuration("DB_HEALTH_CHECK_PERIOD", 1*time.Minute)
+}
+
+func parseRedisURL(cfg *Config) {
+	if ds := getEnv("REDIS_URL", ""); ds != "" {
+		u, err := url.Parse(ds)
+		if err != nil {
+			return
+		}
+		if u.User != nil {
+			cfg.Redis.Password, _ = u.User.Password()
+		}
+		cfg.Redis.Host = u.Hostname()
+		cfg.Redis.Port, _ = strconv.Atoi(portFromHost(u.Host))
+		if len(u.Path) > 1 {
+			cfg.Redis.DB, _ = strconv.Atoi(strings.TrimPrefix(u.Path, "/"))
+		}
+		return
+	}
+	cfg.Redis.Host = getEnv("REDIS_HOST", "localhost")
+	cfg.Redis.Port = getEnvInt("REDIS_PORT", 6379)
+	cfg.Redis.Password = getEnv("REDIS_PASSWORD", "")
+	cfg.Redis.DB = getEnvInt("REDIS_DB", 0)
+}
+
+func parseAsynqConfig(cfg *Config) {
+	cfg.Asynq.Concurrency = getEnvInt("ASYNQ_CONCURRENCY", 10)
+	cfg.Asynq.Host = getEnv("ASYNQ_HOST", cfg.Redis.Host)
+	cfg.Asynq.Port = getEnvInt("ASYNQ_PORT", cfg.Redis.Port)
+	cfg.Asynq.Password = getEnv("ASYNQ_PASSWORD", cfg.Redis.Password)
+	cfg.Asynq.DB = getEnvInt("ASYNQ_DB", 1)
+}
+
+func portFromHost(host string) string {
+	idx := strings.LastIndex(host, ":")
+	if idx >= 0 {
+		return host[idx+1:]
+	}
+	return "0"
 }
 
 func (c *Config) DatabaseDSN() string {
