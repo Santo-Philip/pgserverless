@@ -85,4 +85,24 @@ export interface Backup {
 export interface PlatformSettings {
 	region: string;
 	default_visibility: string;
+	app_name: string;
+	log_level: string;
+	jwt_access_ttl: string;
+	jwt_refresh_ttl: string;
+	cors_origins: string;
+	monitoring_enabled: boolean;
+	max_db_connections: number;
+	min_db_connections: number;
+	health_check_period: string;
+	api_rate_limits: string;
+	registration_enabled: boolean;
+	maintenance_mode: boolean;
+	email_verification_required: boolean;
+	default_user_role: string;
+	otp_expiry: string;
+	password_min_length: number;
+	password_require_special: boolean;
+	password_require_numbers: boolean;
+	storage_limit_mb: number;
+	feature_flags: string;
 }
