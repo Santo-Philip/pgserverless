@@ -40,6 +40,7 @@ export interface User {
 	email: string;
 	name: string;
 	status: string;
+	is_super_admin: boolean;
 	created_at: string;
 }
 

@@ -1,134 +1,156 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { isAuthenticated } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
 	import { api } from '$lib/api/client';
+	import { goto } from '$app/navigation';
+	import Card from '$lib/components/Card.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
 	let apps = $state<App[]>([]);
 	let loading = $state(true);
-	let showCreateForm = $state(false);
+	let showCreate = $state(false);
+	let deleting = $state<{ id: string; name: string } | null>(null);
+	let deletingLoading = $state(false);
+
 	let newName = $state('');
 	let newSlug = $state('');
-	let error = $state('');
+	let newDesc = $state('');
+	let createError = $state('');
+	let createLoading = $state(false);
 
 	onMount(async () => {
-		if (!$isAuthenticated) {
-			goto('/login');
-			return;
-		}
-
 		try {
 			const result = await api.listApps();
 			apps = result.data;
-		} catch (e) {
-			console.error('Failed to load apps', e);
-		} finally {
-			loading = false;
-		}
+		} catch {}
+		loading = false;
 	});
 
 	async function handleCreate() {
-		error = '';
+		createError = '';
+		createLoading = true;
 		try {
-			const result = await api.createApp(newName, newSlug);
+			const result = await api.createApp(newName, newSlug, newDesc || undefined);
 			apps = [result.app, ...apps];
-			showCreateForm = false;
+			showCreate = false;
 			newName = '';
 			newSlug = '';
+			newDesc = '';
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to create app';
+			createError = e instanceof Error ? e.message : 'Failed to create app';
+		} finally {
+			createLoading = false;
 		}
 	}
 
-	async function handleDelete(id: string) {
-		if (!confirm('Delete this app? This action cannot be undone.')) return;
+	async function handleDelete() {
+		if (!deleting) return;
+		deletingLoading = true;
 		try {
-			await api.deleteApp(id);
-			apps = apps.filter((a) => a.id !== id);
-		} catch (e) {
-			console.error('Failed to delete app', e);
-		}
+			await api.deleteApp(deleting.id);
+			apps = apps.filter(a => a.id !== deleting.id);
+		} catch {}
+		deletingLoading = false;
+		deleting = null;
 	}
 </script>
 
-<div class="max-w-6xl mx-auto">
-	<div class="flex justify-between items-center mb-8">
-		<h1 class="text-3xl font-bold">Applications</h1>
-		<button
-			onclick={() => (showCreateForm = !showCreateForm)}
-			class="bg-nexbic-600 text-white px-4 py-2 rounded hover:bg-nexbic-700 transition-colors"
-		>
-			Create App
+<div class="max-w-7xl mx-auto">
+	<div class="flex items-center justify-between mb-8">
+		<div>
+			<h1 class="text-2xl font-bold">Applications</h1>
+			<p class="text-sm mt-1" style="color: var(--text-secondary)">Manage your PostgreSQL-backed applications</p>
+		</div>
+		<button onclick={() => showCreate = true} class="btn btn-primary">
+			+ Create Application
 		</button>
 	</div>
 
-	{#if showCreateForm}
-		<div class="bg-white rounded-lg shadow p-6 mb-6">
-			<h2 class="text-xl font-semibold mb-4">New Application</h2>
-			<form onsubmit={handleCreate} class="space-y-4">
-				{#if error}
-					<div class="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>
-				{/if}
+	<Modal title="Create Application" open={showCreate} onclose={() => showCreate = false}>
+		<form onsubmit={handleCreate} class="space-y-4">
+			{#if createError}
+				<div class="px-4 py-3 rounded-lg text-sm" style="background-color: rgba(239,68,68,0.1); color: var(--danger)">{createError}</div>
+			{/if}
 
-				<div>
-					<label for="app-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-					<input id="app-name" type="text" bind:value={newName} required class="w-full px-3 py-2 border rounded" />
-				</div>
+			<div>
+				<label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Application Name</label>
+				<input type="text" bind:value={newName} required class="input" placeholder="My App" />
+			</div>
 
-				<div>
-					<label for="app-slug" class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-					<input id="app-slug" type="text" bind:value={newSlug} required class="w-full px-3 py-2 border rounded font-mono" />
-					<p class="text-xs text-gray-500 mt-1">Used in API URL: /api/v1/{newSlug || 'slug'}/*</p>
-				</div>
+			<div>
+				<label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Slug</label>
+				<input type="text" bind:value={newSlug} required class="input font-mono" placeholder="my-app" />
+				<p class="text-xs mt-1" style="color: var(--text-tertiary)">Used in API URL: /api/v1/<span class="font-mono">{newSlug || 'slug'}</span></p>
+			</div>
 
-				<div class="flex gap-2">
-					<button type="submit" class="bg-nexbic-600 text-white px-4 py-2 rounded hover:bg-nexbic-700">
-						Create
-					</button>
-					<button type="button" onclick={() => (showCreateForm = false)} class="px-4 py-2 rounded border hover:bg-gray-50">
-						Cancel
-					</button>
-				</div>
-			</form>
-		</div>
-	{/if}
+			<div>
+				<label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Description</label>
+				<textarea bind:value={newDesc} class="input" rows="2" placeholder="Optional description"></textarea>
+			</div>
+
+			<div class="flex justify-end gap-3 pt-2">
+				<button type="button" onclick={() => showCreate = false} class="btn btn-secondary">Cancel</button>
+				<button type="submit" disabled={createLoading} class="btn btn-primary">{createLoading ? 'Creating...' : 'Create'}</button>
+			</div>
+		</form>
+	</Modal>
+
+	<ConfirmDialog
+		open={!!deleting}
+		title="Delete Application"
+		description={`Are you sure you want to delete "${deleting?.name}"? This will remove all data, schemas, and API keys. This action cannot be undone.`}
+		confirmLabel="Delete"
+		variant="danger"
+		loading={deletingLoading}
+		onconfirm={handleDelete}
+		oncancel={() => deleting = null}
+	/>
 
 	{#if loading}
-		<p class="text-gray-500">Loading...</p>
+		<div class="card p-0"><Skeleton rows={4} /></div>
 	{:else if apps.length === 0}
-		<div class="bg-white rounded-lg shadow p-12 text-center">
-			<p class="text-gray-500 text-lg mb-4">No applications yet</p>
-			<button
-				onclick={() => (showCreateForm = true)}
-				class="bg-nexbic-600 text-white px-6 py-3 rounded hover:bg-nexbic-700"
-			>
-				Create your first app
-			</button>
-		</div>
+		<EmptyState icon="▦" title="No applications yet" description="Create your first application to get started.">
+			<button onclick={() => showCreate = true} class="btn btn-primary">Create Application</button>
+		</EmptyState>
 	{:else}
-		<div class="grid gap-4">
-			{#each apps as app}
-				<div class="bg-white rounded-lg shadow p-6 flex justify-between items-center">
-					<div>
-						<a href="/apps/{app.id}" class="text-lg font-semibold text-nexbic-600 hover:underline">
-							{app.name}
-						</a>
-						<p class="text-sm text-gray-500 font-mono">/api/v1/{app.slug}</p>
-						<p class="text-xs text-gray-400 mt-1">Created {new Date(app.created_at).toLocaleDateString()}</p>
-					</div>
-					<div class="flex items-center gap-3">
-						<span class="text-xs uppercase px-2 py-1 rounded {app.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
-							{app.status}
-						</span>
-						<button
-							onclick={() => handleDelete(app.id)}
-							class="text-red-500 hover:text-red-700 text-sm"
-						>
-							Delete
-						</button>
-					</div>
-				</div>
-			{/each}
+		<div class="card p-0 overflow-hidden">
+			<div class="table-wrap overflow-x-auto">
+				<table class="w-full">
+					<thead>
+						<tr>
+							<th>Application</th>
+							<th>Slug</th>
+							<th>Schema</th>
+							<th>Status</th>
+							<th>Created</th>
+							<th class="text-right">Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each apps as app}
+							<tr>
+								<td>
+									<a href="/apps/{app.id}" class="font-medium link">{app.name}</a>
+								</td>
+								<td><span class="font-mono text-xs" style="color: var(--text-secondary)">{app.slug}</span></td>
+								<td><span class="font-mono text-xs" style="color: var(--text-secondary)">{app.schema_name}</span></td>
+								<td><Badge status={app.status} /></td>
+								<td class="text-xs" style="color: var(--text-tertiary)">{new Date(app.created_at).toLocaleDateString()}</td>
+								<td class="text-right">
+									<div class="flex items-center justify-end gap-1">
+										<a href="/apps/{app.id}" class="btn btn-ghost btn-sm">Open</a>
+										<a href="/apps/{app.id}/settings" class="btn btn-ghost btn-sm">Settings</a>
+										<button onclick={() => deleting = { id: app.id, name: app.name }} class="btn btn-ghost btn-sm" style="color: var(--danger)">Delete</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</div>
 	{/if}
 </div>

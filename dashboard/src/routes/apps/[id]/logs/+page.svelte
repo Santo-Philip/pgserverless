@@ -2,60 +2,64 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client';
+	import Card from '$lib/components/Card.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 
 	let logs = $state<AuditLog[]>([]);
 	let loading = $state(true);
+	let filter = $state('');
 
 	onMount(async () => {
 		try {
 			const result = await api.get<AuditLog[]>(`/api/v1/platform/apps/${$page.params.id}/logs`);
 			logs = result;
-		} catch (e) {
-			console.error('Failed to load logs', e);
-		} finally {
-			loading = false;
-		}
+		} catch {}
+		loading = false;
 	});
+
+	let filtered = $derived(
+		filter ? logs.filter(l => l.path.toLowerCase().includes(filter.toLowerCase()) || l.method.toLowerCase().includes(filter.toLowerCase())) : logs
+	);
 </script>
 
-<div class="max-w-6xl mx-auto">
-	<a href="/apps/{$page.params.id}" class="text-nexbic-600 hover:underline mb-4 inline-block">&larr; Back to App</a>
-	<h1 class="text-3xl font-bold mb-8">Logs</h1>
-
+<Card title="Request Logs" description="API request history for this application">
+	<div class="flex justify-end mb-4 -mt-1">
+		<input type="text" bind:value={filter} class="input !w-48" placeholder="Filter..." />
+	</div>
 	{#if loading}
-		<p class="text-gray-500">Loading...</p>
+		<Skeleton rows={5} />
 	{:else if logs.length === 0}
-		<div class="bg-white rounded-lg shadow p-12 text-center">
-			<p class="text-gray-500">No logs yet.</p>
-		</div>
+		<EmptyState title="No logs yet" description="API requests will appear here." />
 	{:else}
-		<div class="bg-white rounded-lg shadow overflow-hidden">
+		<div class="table-wrap overflow-x-auto -mx-5 -mb-5">
 			<table class="w-full">
-				<thead class="bg-gray-50">
+				<thead>
 					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Path</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time (ms)</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+						<th>Method</th>
+						<th>Path</th>
+						<th>Status</th>
+						<th>Time (ms)</th>
+						<th>Timestamp</th>
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-gray-200">
-					{#each logs as log}
+				<tbody>
+					{#each filtered as log}
 						<tr>
-							<td class="px-6 py-4">
-								<span class="text-xs font-mono px-2 py-1 rounded {log.method === 'GET' ? 'bg-green-100 text-green-700' : log.method === 'POST' ? 'bg-blue-100 text-blue-700' : log.method === 'DELETE' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">
+							<td>
+								<span class="badge text-xs font-mono" style="background-color: {log.method === 'GET' ? 'rgba(34,197,94,0.1)' : log.method === 'POST' ? 'rgba(12,142,229,0.1)' : log.method === 'PATCH' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'}; color: {log.method === 'GET' ? 'var(--success)' : log.method === 'POST' ? 'var(--accent)' : log.method === 'PATCH' ? 'var(--warning)' : 'var(--danger)'}">
 									{log.method}
 								</span>
 							</td>
-							<td class="px-6 py-4 font-mono text-sm">{log.path}</td>
-							<td class="px-6 py-4">{log.status_code}</td>
-							<td class="px-6 py-4">{log.response_time_ms}</td>
-							<td class="px-6 py-4 text-sm text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
+							<td class="font-mono text-xs">{log.path}</td>
+							<td>{log.status_code}</td>
+							<td>{log.response_time_ms}</td>
+							<td class="text-xs" style="color: var(--text-tertiary)">{new Date(log.created_at).toLocaleString()}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
 	{/if}
-</div>
+</Card>

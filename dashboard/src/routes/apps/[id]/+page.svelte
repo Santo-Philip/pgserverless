@@ -2,6 +2,10 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client';
+	import Card from '$lib/components/Card.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import StatCard from '$lib/components/StatCard.svelte';
+	import LoadingCard from '$lib/components/LoadingCard.svelte';
 
 	let app = $state<App | null>(null);
 	let loading = $state(true);
@@ -9,66 +13,52 @@
 	onMount(async () => {
 		try {
 			app = await api.getApp($page.params.id);
-		} catch (e) {
-			console.error('Failed to load app', e);
-		} finally {
-			loading = false;
-		}
+		} catch {}
+		loading = false;
 	});
 </script>
 
-<div class="max-w-6xl mx-auto">
-	<a href="/apps" class="text-nexbic-600 hover:underline mb-4 inline-block">&larr; Back to Apps</a>
+{#if loading}
+	<div class="space-y-4"><LoadingCard /><LoadingCard /></div>
+{:else if app}
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+		<StatCard title="Status" value={app.status} subtitle="Current state" />
+		<StatCard title="Schema" value={app.schema_name} subtitle="PostgreSQL schema" />
+		<StatCard title="Region" value={app.region} subtitle="Deployment region" />
+		<StatCard title="Created" value={new Date(app.created_at).toLocaleDateString()} subtitle={new Date(app.created_at).toLocaleTimeString()} />
+	</div>
 
-	{#if loading}
-		<p class="text-gray-500">Loading...</p>
-	{:else if app}
-		<h1 class="text-3xl font-bold mb-2">{app.name}</h1>
-		<p class="text-lg text-gray-500 font-mono mb-8">/api/v1/{app.slug}</p>
-
-		<div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-			<a href="/apps/{app.id}" class="bg-nexbic-600 text-white px-4 py-2 rounded text-center no-underline">
-				Overview
-			</a>
-			<a href="/apps/{app.id}/tables" class="bg-white text-gray-700 px-4 py-2 rounded text-center no-underline border hover:bg-gray-50">
-				Tables
-			</a>
-			<a href="/apps/{app.id}/sql" class="bg-white text-gray-700 px-4 py-2 rounded text-center no-underline border hover:bg-gray-50">
-				SQL Editor
-			</a>
-			<a href="/apps/{app.id}/domains" class="bg-white text-gray-700 px-4 py-2 rounded text-center no-underline border hover:bg-gray-50">
-				Domains
-			</a>
-			<a href="/apps/{app.id}/api-keys" class="bg-white text-gray-700 px-4 py-2 rounded text-center no-underline border hover:bg-gray-50">
-				API Keys
-			</a>
-			<a href="/apps/{app.id}/logs" class="bg-white text-gray-700 px-4 py-2 rounded text-center no-underline border hover:bg-gray-50">
-				Logs
-			</a>
-		</div>
-
-		<div class="bg-white rounded-lg shadow p-6">
-			<h2 class="text-xl font-semibold mb-4">App Details</h2>
-			<dl class="grid grid-cols-2 gap-4">
-				<div>
-					<dt class="text-sm text-gray-500">App ID</dt>
-					<dd class="font-mono text-sm">{app.id}</dd>
-				</div>
-				<div>
-					<dt class="text-sm text-gray-500">Schema</dt>
-					<dd class="font-mono text-sm">{app.schema_name}</dd>
-				</div>
-				<div>
-					<dt class="text-sm text-gray-500">Status</dt>
-					<dd class="capitalize">{app.status}</dd>
-				</div>
-				<div>
-					<dt class="text-sm text-gray-500">Created</dt>
-					<dd>{new Date(app.created_at).toLocaleDateString()}</dd>
-				</div>
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<Card title="Application Details">
+			<dl class="space-y-3">
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">App ID</span><span class="text-sm font-mono">{app.id}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Name</span><span class="text-sm">{app.name}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Slug</span><span class="text-sm font-mono">{app.slug}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Schema</span><span class="text-sm font-mono">{app.schema_name}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Visibility</span><span class="text-sm">{app.visibility}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Status</span><Badge status={app.status} /></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Created</span><span class="text-sm">{new Date(app.created_at).toLocaleString()}</span></div>
+				<div class="flex justify-between"><span class="text-sm" style="color: var(--text-secondary)">Updated</span><span class="text-sm">{new Date(app.updated_at).toLocaleString()}</span></div>
 			</dl>
-		</div>
-	{:else}
-		<p class="text-red-500">App not found</p>
-	{/if}
-</div>
+		</Card>
+
+		<Card title="REST Endpoint">
+			<div class="space-y-3">
+				<div>
+					<p class="text-xs mb-1" style="color: var(--text-tertiary)">API Base URL</p>
+					<div class="flex items-center justify-between p-3 rounded-lg font-mono text-sm" style="background-color: var(--bg-tertiary);">
+						<span>/api/v1/{app.slug}</span>
+						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app.slug}`)} class="btn btn-ghost btn-sm">Copy</button>
+					</div>
+				</div>
+				<div>
+					<p class="text-xs mb-1" style="color: var(--text-tertiary)">Example: GET /users</p>
+					<div class="flex items-center justify-between p-3 rounded-lg font-mono text-sm" style="background-color: var(--bg-tertiary);">
+						<span>GET /api/v1/{app.slug}/users</span>
+						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app.slug}/users`)} class="btn btn-ghost btn-sm">Copy</button>
+					</div>
+				</div>
+			</div>
+		</Card>
+	</div>
+{/if}

@@ -11,7 +11,6 @@
 	async function handleSubmit() {
 		error = '';
 		loading = true;
-
 		try {
 			await register(email, password, name || undefined);
 			goto('/');
@@ -23,60 +22,43 @@
 	}
 </script>
 
-<div class="max-w-md mx-auto mt-20">
-	<div class="bg-white rounded-lg shadow p-8">
-		<h1 class="text-2xl font-bold mb-6 text-center">Create Account</h1>
+<div class="min-h-screen flex items-center justify-center p-4" style="background-color: var(--bg-primary);">
+	<div class="w-full max-w-sm">
+		<div class="text-center mb-8">
+			<div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold mx-auto mb-4" style="background-color: var(--accent); color: #fff;">N</div>
+			<h1 class="text-xl font-bold">Create account</h1>
+			<p class="text-sm mt-1" style="color: var(--text-secondary)">Register for platform access</p>
+		</div>
 
-		<form onsubmit={handleSubmit} class="space-y-4">
-			{#if error}
-				<div class="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>
-			{/if}
+		<div class="card p-6">
+			<form onsubmit={handleSubmit} class="space-y-4">
+				{#if error}
+					<div class="px-4 py-3 rounded-lg text-sm" style="background-color: rgba(239,68,68,0.1); color: var(--danger)">{error}</div>
+				{/if}
 
-			<div>
-				<label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-				<input
-					id="name"
-					type="text"
-					bind:value={name}
-					class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-nexbic-500"
-				/>
-			</div>
+				<div>
+					<label for="name" class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Name</label>
+					<input id="name" type="text" bind:value={name} class="input" placeholder="Your name" />
+				</div>
 
-			<div>
-				<label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-				<input
-					id="email"
-					type="email"
-					bind:value={email}
-					required
-					class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-nexbic-500"
-				/>
-			</div>
+				<div>
+					<label for="email" class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Email</label>
+					<input id="email" type="email" bind:value={email} required class="input" placeholder="you@example.com" />
+				</div>
 
-			<div>
-				<label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-				<input
-					id="password"
-					type="password"
-					bind:value={password}
-					required
-					minlength="8"
-					class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-nexbic-500"
-				/>
-			</div>
+				<div>
+					<label for="password" class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Password</label>
+					<input id="password" type="password" bind:value={password} required minlength="8" class="input" placeholder="Min. 8 characters" />
+				</div>
 
-			<button
-				type="submit"
-				disabled={loading}
-				class="w-full bg-nexbic-600 text-white py-2 rounded hover:bg-nexbic-700 disabled:opacity-50 transition-colors"
-			>
-				{loading ? 'Creating account...' : 'Create Account'}
-			</button>
-		</form>
+				<button type="submit" disabled={loading} class="btn btn-primary w-full">
+					{loading ? 'Creating account...' : 'Create Account'}
+				</button>
+			</form>
 
-		<p class="mt-4 text-center text-sm text-gray-500">
-			Already have an account?
-			<a href="/login" class="text-nexbic-600 hover:underline">Sign In</a>
-		</p>
+			<p class="mt-6 text-center text-sm" style="color: var(--text-tertiary)">
+				Already have an account? <a href="/login" class="link">Sign In</a>
+			</p>
+		</div>
 	</div>
 </div>
