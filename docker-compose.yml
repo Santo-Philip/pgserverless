@@ -165,6 +165,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dashboard
+      args:
+        PUBLIC_API_PORT: ${API_PORT:-8080}
     container_name: nexbic-dashboard
     restart: unless-stopped
     networks:

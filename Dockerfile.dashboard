@@ -1,4 +1,6 @@
 FROM node:20-alpine AS builder
+ARG PUBLIC_API_PORT
+ENV PUBLIC_API_PORT=${PUBLIC_API_PORT}
 WORKDIR /app
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci
