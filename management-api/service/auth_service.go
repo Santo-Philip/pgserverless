@@ -95,15 +95,16 @@ func (s *AuthService) generateAuthResponse(ctx context.Context, user *models.Use
 	refreshExp := now.Add(s.jwtCfg.RefreshTTL)
 
 	accessClaims := jwt.MapClaims{
-		"sub":   user.ID.String(),
-		"email": user.Email,
-		"name":  user.Name,
-		"role":  "authenticated",
-		"type":  "access",
-		"iss":   s.jwtCfg.Issuer,
-		"aud":   s.jwtCfg.Audience,
-		"exp":   accessExp.Unix(),
-		"iat":   now.Unix(),
+		"sub":            user.ID.String(),
+		"email":          user.Email,
+		"name":           user.Name,
+		"role":           "authenticated",
+		"is_super_admin": user.IsSuperAdmin,
+		"type":           "access",
+		"iss":            s.jwtCfg.Issuer,
+		"aud":            s.jwtCfg.Audience,
+		"exp":            accessExp.Unix(),
+		"iat":            now.Unix(),
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)

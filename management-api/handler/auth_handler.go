@@ -60,7 +60,12 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 
 func (h *AuthHandler) Me(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
-	return utils.OK(c, map[string]string{"user_id": userID})
+	isAdmin, _ := c.Locals("is_super_admin").(bool)
+	return utils.OK(c, map[string]any{
+		"user_id":        userID,
+		"email":          c.Locals("email"),
+		"is_super_admin": isAdmin,
+	})
 }
 
 func (h *AuthHandler) ListUsers(c *fiber.Ctx) error {

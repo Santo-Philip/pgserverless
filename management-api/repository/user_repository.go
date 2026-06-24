@@ -17,15 +17,29 @@ func NewUserRepository(db *database.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+func (r *UserRepository) Count(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`).Scan(&count)
+	return count, err
+}
+
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	user.ID = models.NewID()
 	user.CreatedAt = models.Now()
 	user.UpdatedAt = models.Now()
 
-	_, err := r.db.Pool.Exec(ctx, `
-		INSERT INTO users (id, email, password_hash, name, avatar_url, status, organization_id, role_id, metadata, last_login_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-	`, user.ID, user.Email, user.PasswordHash, user.Name, user.AvatarURL, user.Status, user.OrganizationID, user.RoleID, user.Metadata, user.LastLoginAt, user.CreatedAt, user.UpdatedAt)
+	count, err := r.Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		user.IsSuperAdmin = true
+	}
+
+	_, err = r.db.Pool.Exec(ctx, `
+		INSERT INTO users (id, email, password_hash, name, avatar_url, status, is_super_admin, organization_id, role_id, metadata, last_login_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	`, user.ID, user.Email, user.PasswordHash, user.Name, user.AvatarURL, user.Status, user.IsSuperAdmin, user.OrganizationID, user.RoleID, user.Metadata, user.LastLoginAt, user.CreatedAt, user.UpdatedAt)
 
 	return err
 }
@@ -33,9 +47,9 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	user := &models.User{}
 	err := r.db.Pool.QueryRow(ctx, `
-		SELECT id, email, password_hash, name, avatar_url, status, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, avatar_url, status, is_super_admin, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
 		FROM users WHERE id = $1 AND deleted_at IS NULL
-	`, id).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Status, &user.OrganizationID, &user.RoleID, &user.Metadata, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	`, id).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Status, &user.IsSuperAdmin, &user.OrganizationID, &user.RoleID, &user.Metadata, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
 
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -46,9 +60,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Use
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	user := &models.User{}
 	err := r.db.Pool.QueryRow(ctx, `
-		SELECT id, email, password_hash, name, avatar_url, status, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, avatar_url, status, is_super_admin, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
 		FROM users WHERE email = $1 AND deleted_at IS NULL
-	`, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Status, &user.OrganizationID, &user.RoleID, &user.Metadata, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	`, email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Status, &user.IsSuperAdmin, &user.OrganizationID, &user.RoleID, &user.Metadata, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
 
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -64,7 +78,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]models.
 	}
 
 	rows, err := r.db.Pool.Query(ctx, `
-		SELECT id, email, password_hash, name, avatar_url, status, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, avatar_url, status, is_super_admin, organization_id, role_id, metadata, last_login_at, created_at, updated_at, deleted_at
 		FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
@@ -75,7 +89,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]models.
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Status, &u.OrganizationID, &u.RoleID, &u.Metadata, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Status, &u.IsSuperAdmin, &u.OrganizationID, &u.RoleID, &u.Metadata, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)

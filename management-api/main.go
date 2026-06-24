@@ -77,8 +77,8 @@ func main() {
 
 	api.Get("/users", authMW.RequireAuth(), authHandler.ListUsers)
 	api.Get("/users/:userId", authMW.RequireAuth(), authHandler.GetUser)
-	api.Post("/users/:userId/suspend", authMW.RequireAuth(), authHandler.SuspendUser)
-	api.Post("/users/:userId/activate", authMW.RequireAuth(), authHandler.ActivateUser)
+	api.Post("/users/:userId/suspend", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.SuspendUser)
+	api.Post("/users/:userId/activate", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.ActivateUser)
 
 	api.Get("/backups", authMW.RequireAuth(), appHandler.ListBackups)
 	api.Post("/backups", authMW.RequireAuth(), appHandler.CreateBackup)

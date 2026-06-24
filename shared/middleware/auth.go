@@ -32,8 +32,19 @@ func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 		c.Locals("user_id", claims["sub"])
 		c.Locals("email", claims["email"])
 		c.Locals("role", claims["role"])
+		c.Locals("is_super_admin", claims["is_super_admin"])
 		c.Locals("token_claims", claims)
 
+		return c.Next()
+	}
+}
+
+func (m *AuthMiddleware) RequireAdmin() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		isAdmin, ok := c.Locals("is_super_admin").(bool)
+		if !ok || !isAdmin {
+			return utils.Forbidden(c, "admin access required")
+		}
 		return c.Next()
 	}
 }

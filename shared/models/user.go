@@ -22,6 +22,7 @@ type User struct {
 	Name           string     `json:"name"`
 	AvatarURL      string     `json:"avatar_url,omitempty"`
 	Status         UserStatus `json:"status"`
+	IsSuperAdmin   bool       `json:"is_super_admin"`
 	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
 	RoleID         *uuid.UUID `json:"role_id,omitempty"`
 	Metadata       JSON       `json:"metadata,omitempty"`
