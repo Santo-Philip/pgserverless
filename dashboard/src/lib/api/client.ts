@@ -1,10 +1,10 @@
 import { browser } from '$app/environment';
+import { PUBLIC_API_PORT } from '$env/dynamic/public';
 
-const API_PORT = '8080';
 function getBaseUrl(): string {
 	if (browser) {
 		const host = window.location.hostname;
-		return `http://${host}:${API_PORT}`;
+		return `http://${host}:${PUBLIC_API_PORT}`;
 	}
 	return '';
 }
