@@ -172,6 +172,7 @@ services:
     environment:
       VITE_API_URL: http://caddy:8080
       ORIGIN: http://localhost:5173
+      PORT: 5173
     logging:
       driver: "json-file"
       options:
@@ -244,6 +245,7 @@ services:
     image: grafana/loki:latest
     container_name: nexbic-loki
     restart: unless-stopped
+    user: root
     networks:
       - internal
     volumes:
