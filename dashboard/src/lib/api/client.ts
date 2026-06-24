@@ -1,6 +1,13 @@
 import { browser } from '$app/environment';
 
-const BASE_URL = '';
+const API_PORT = '8080';
+function getBaseUrl(): string {
+	if (browser) {
+		const host = window.location.hostname;
+		return `http://${host}:${API_PORT}`;
+	}
+	return '';
+}
 
 class ApiClient {
 	private token: string | null = null;
@@ -43,7 +50,7 @@ class ApiClient {
 			headers['Authorization'] = `Bearer ${this.token}`;
 		}
 
-		const response = await fetch(`${BASE_URL}${path}`, {
+		const response = await fetch(`${getBaseUrl()}${path}`, {
 			method,
 			headers,
 			body: body ? JSON.stringify(body) : undefined
