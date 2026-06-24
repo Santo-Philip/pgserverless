@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -77,6 +78,13 @@ func (s *AppService) CreateApp(ctx context.Context, req CreateAppRequest, userID
 	appRole := "app_" + req.Slug
 	appJWTSecret := generateJWTSecret()
 
+	if err := validateIdentifier(schemaName); err != nil {
+		return nil, fmt.Errorf("invalid schema name: %w", err)
+	}
+	if err := validateIdentifier(appRole); err != nil {
+		return nil, fmt.Errorf("invalid role name: %w", err)
+	}
+
 	var orgID uuid.UUID
 	if req.OrgID != "" {
 		var err error
@@ -105,27 +113,27 @@ func (s *AppService) CreateApp(ctx context.Context, req CreateAppRequest, userID
 			return fmt.Errorf("create app: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s`, schemaName)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s`, quoteIdentifier(schemaName))); err != nil {
 			return fmt.Errorf("create schema: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`CREATE ROLE %s WITH LOGIN PASSWORD '%s' NOINHERIT`, appRole, appJWTSecret)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`CREATE ROLE %s WITH LOGIN PASSWORD %s NOINHERIT`, quoteIdentifier(appRole), quoteLiteral(appJWTSecret))); err != nil {
 			return fmt.Errorf("create role: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s`, schemaName, appRole)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s`, quoteIdentifier(schemaName), quoteIdentifier(appRole))); err != nil {
 			return fmt.Errorf("grant schema privileges: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT USAGE ON SCHEMA %s TO %s`, schemaName, appRole)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT USAGE ON SCHEMA %s TO %s`, quoteIdentifier(schemaName), quoteIdentifier(appRole))); err != nil {
 			return fmt.Errorf("grant schema usage: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s`, schemaName, appRole)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s`, quoteIdentifier(schemaName), quoteIdentifier(appRole))); err != nil {
 			return fmt.Errorf("grant table privileges: %w", err)
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %s TO %s`, schemaName, appRole)); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %s TO %s`, quoteIdentifier(schemaName), quoteIdentifier(appRole))); err != nil {
 			return fmt.Errorf("grant sequence privileges: %w", err)
 		}
 
@@ -205,6 +213,29 @@ func generateJWTSecret() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+var validIdentifier = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func validateIdentifier(name string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("identifier cannot be empty")
+	}
+	if len(name) > 63 {
+		return fmt.Errorf("identifier too long (max 63 chars)")
+	}
+	if !validIdentifier.MatchString(name) {
+		return fmt.Errorf("identifier contains invalid characters: %s", name)
+	}
+	return nil
+}
+
+func quoteIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
+func quoteLiteral(val string) string {
+	return `'` + strings.ReplaceAll(val, `'`, `''`) + `'`
 }
 
 func (s *AppService) reloadPostgREST() {

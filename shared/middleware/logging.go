@@ -40,11 +40,11 @@ func Logger() fiber.Handler {
 }
 
 func Recover() fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("PANIC: %v", r)
-				c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				err = c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"code":    "internal_error",
 					"message": "an unexpected error occurred",
 				})

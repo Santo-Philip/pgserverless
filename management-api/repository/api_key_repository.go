@@ -2,7 +2,8 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -72,5 +73,6 @@ func (r *APIKeyRepository) Deactivate(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *APIKeyRepository) HashKey(rawKey string) string {
-	return fmt.Sprintf("hashed_%s", rawKey[:16])
+	h := sha256.Sum256([]byte(rawKey))
+	return hex.EncodeToString(h[:])
 }
