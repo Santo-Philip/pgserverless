@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -69,7 +70,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		addr := cfg.Server.Host + ":" + "8080"
+		addr := fmt.Sprintf("0.0.0.0:%d", cfg.Server.Port)
 		log.Printf("Gateway starting on %s", addr)
 		if err := f.Listen(addr); err != nil {
 			log.Fatalf("server error: %v", err)

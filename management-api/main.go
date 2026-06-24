@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -97,7 +98,10 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		addr := cfg.Server.Host + ":" + "8081"
+		addr := fmt.Sprintf("0.0.0.0:%s", os.Getenv("MGMT_PORT"))
+		if os.Getenv("MGMT_PORT") == "" {
+			addr = "0.0.0.0:8081"
+		}
 		log.Printf("Management API starting on %s", addr)
 		if err := f.Listen(addr); err != nil {
 			log.Fatalf("server error: %v", err)
