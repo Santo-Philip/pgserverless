@@ -12,6 +12,7 @@ services:
     env_file:
       - .env
     environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       TZ: UTC
       PGTZ: UTC
     healthcheck:
@@ -78,7 +79,10 @@ services:
     restart: unless-stopped
     networks:
       - internal
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command:
+      - /bin/sh
+      - -c
+      - if [ -n "$$REDIS_PASSWORD" ]; then exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"; else exec redis-server --appendonly yes; fi
     volumes:
       - redis_data:/data
     healthcheck:
