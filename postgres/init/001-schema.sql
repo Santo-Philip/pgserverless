@@ -1,6 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+CREATE SCHEMA IF NOT EXISTS api;
+
 CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended', 'deleted');
 CREATE TYPE organization_status AS ENUM ('active', 'inactive', 'suspended');
 
