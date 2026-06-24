@@ -10,9 +10,6 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: platform
 
     services:
       postgres:
@@ -35,7 +32,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
-          cache-dependency-path: platform/go.sum
+          cache-dependency-path: go.sum
 
       - name: Init DB schema
         run: |
@@ -43,6 +40,7 @@ jobs:
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/002-functions.sql
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/003-roles.sql
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/004-platform.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/005-domains.sql
 
       - name: Build
         run: go build ./...
@@ -56,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: platform/dashboard
+        working-directory: dashboard
 
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +63,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: platform/dashboard/package-lock.json
+          cache-dependency-path: dashboard/package-lock.json
 
       - name: Install
         run: npm ci
