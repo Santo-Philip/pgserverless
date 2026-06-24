@@ -1,11 +1,8 @@
 import { browser } from '$app/environment';
 
-const API_PORT = '8080';
-
 function getBaseUrl(): string {
 	if (browser) {
-		const host = window.location.hostname;
-		return `http://${host}:${API_PORT}`;
+		return window.location.origin;
 	}
 	return '';
 }
