@@ -35,9 +35,10 @@ func main() {
 	appService := service.NewAppService(appRepo, keyRepo, userRepo, db, cfg.JWT.Secret, cfg.PostgREST.AdminURL)
 	keyService := service.NewAPIKeyService(keyRepo)
 	domainService := service.NewDomainService(domainRepo)
+	settingsService := service.NewSettingsService(db)
 
 	authHandler := handler.NewAuthHandler(authService)
-	appHandler := handler.NewAppHandler(appService, db)
+	appHandler := handler.NewAppHandler(appService, settingsService)
 	keyHandler := handler.NewAPIKeyHandler(keyService)
 	domainHandler := handler.NewDomainHandler(domainService)
 
