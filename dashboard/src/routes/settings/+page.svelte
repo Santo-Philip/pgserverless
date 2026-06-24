@@ -171,7 +171,7 @@
 					</div>
 					<div>
 						<label class="block text-sm font-medium mb-1" style="color: var(--text-secondary)">Feature Flags</label>
-						<textarea bind:value={settings.feature_flags} class="input" rows="3" placeholder='{"new_dashboard": true}'></textarea>
+						<textarea bind:value={settings.feature_flags} class="input" rows="3" placeholder="JSON feature flags"></textarea>
 					</div>
 				</div>
 			</Card>
