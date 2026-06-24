@@ -6,12 +6,17 @@ import (
 )
 
 func CORS(origins []string) fiber.Handler {
+	allowCredentials := true
+	allowOrigins := joinOrigins(origins)
+	if allowOrigins == "*" {
+		allowCredentials = false
+	}
 	return cors.New(cors.Config{
-		AllowOrigins:     joinOrigins(origins),
+		AllowOrigins:     allowOrigins,
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders:     "Authorization, X-API-Key, Content-Type, Accept, Accept-Profile, Content-Profile, Prefer, X-Request-ID",
 		ExposeHeaders:    "Content-Range, Range, Preference-Applied, X-Request-ID, X-Total-Count, X-RateLimit-Limit, X-RateLimit-Remaining",
-		AllowCredentials: true,
+		AllowCredentials: allowCredentials,
 		MaxAge:           86400,
 	})
 }
