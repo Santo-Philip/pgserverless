@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/nexbic/platform/management-api/service"
 	"github.com/nexbic/platform/shared/utils"
 )
@@ -16,7 +15,7 @@ func NewDomainHandler(domainService *service.DomainService) *DomainHandler {
 }
 
 func (h *DomainHandler) List(c *fiber.Ctx) error {
-	appID, err := uuid.Parse(c.Params("id"))
+	appID, err := utils.ParseUUIDParam(c, "id", "app")
 	if err != nil {
 		return utils.BadRequest(c, "invalid app id")
 	}
@@ -30,7 +29,7 @@ func (h *DomainHandler) List(c *fiber.Ctx) error {
 }
 
 func (h *DomainHandler) Create(c *fiber.Ctx) error {
-	appID, err := uuid.Parse(c.Params("id"))
+	appID, err := utils.ParseUUIDParam(c, "id", "app")
 	if err != nil {
 		return utils.BadRequest(c, "invalid app id")
 	}
@@ -54,7 +53,7 @@ func (h *DomainHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *DomainHandler) Delete(c *fiber.Ctx) error {
-	domainID, err := uuid.Parse(c.Params("domainId"))
+	domainID, err := utils.ParseUUIDParam(c, "domainId", "domain")
 	if err != nil {
 		return utils.BadRequest(c, "invalid domain id")
 	}
@@ -67,7 +66,7 @@ func (h *DomainHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *DomainHandler) Verify(c *fiber.Ctx) error {
-	domainID, err := uuid.Parse(c.Params("domainId"))
+	domainID, err := utils.ParseUUIDParam(c, "domainId", "domain")
 	if err != nil {
 		return utils.BadRequest(c, "invalid domain id")
 	}

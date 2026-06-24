@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/nexbic/platform/management-api/service"
 	"github.com/nexbic/platform/shared/database"
 	"github.com/nexbic/platform/shared/utils"
@@ -25,7 +24,10 @@ func (h *AppHandler) Create(c *fiber.Ctx) error {
 		return utils.BadRequest(c, "invalid request body")
 	}
 
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.BadRequest(c, "invalid user id")
+	}
 
 	result, err := h.appService.CreateApp(c.Context(), req, userID)
 	if err != nil {
@@ -36,7 +38,7 @@ func (h *AppHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *AppHandler) GetByID(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
+	id, err := utils.ParseUUIDParam(c, "id", "app")
 	if err != nil {
 		return utils.BadRequest(c, "invalid app id")
 	}
@@ -53,19 +55,18 @@ func (h *AppHandler) GetByID(c *fiber.Ctx) error {
 }
 
 func (h *AppHandler) List(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", 20)
-	offset := c.QueryInt("offset", 0)
+	p := utils.ParsePagination(c)
 
-	apps, total, err := h.appService.ListApps(c.Context(), nil, limit, offset)
+	apps, total, err := h.appService.ListApps(c.Context(), nil, p.Limit, p.Offset)
 	if err != nil {
 		return utils.InternalError(c, "failed to list apps")
 	}
 
-	return utils.Paginated(c, apps, total, limit, offset)
+	return utils.Paginated(c, apps, total, p.Limit, p.Offset)
 }
 
 func (h *AppHandler) Delete(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
+	id, err := utils.ParseUUIDParam(c, "id", "app")
 	if err != nil {
 		return utils.BadRequest(c, "invalid app id")
 	}

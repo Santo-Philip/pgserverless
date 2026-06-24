@@ -69,3 +69,11 @@ func (s *APIKeyService) CreateKey(ctx context.Context, appID uuid.UUID, userID u
 		CreatedAt: key.CreatedAt,
 	}, nil
 }
+
+func (s *APIKeyService) ListByApp(ctx context.Context, appID uuid.UUID) ([]models.APIKey, error) {
+	return s.keyRepo.ListByApp(ctx, appID)
+}
+
+func (s *APIKeyService) Deactivate(ctx context.Context, keyID uuid.UUID) error {
+	return s.keyRepo.Deactivate(ctx, keyID)
+}

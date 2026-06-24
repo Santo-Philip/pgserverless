@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/nexbic/platform/management-api/service"
 	"github.com/nexbic/platform/shared/models"
 	"github.com/nexbic/platform/shared/utils"
@@ -59,35 +58,33 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) Me(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID, _ := utils.GetUserID(c)
 	isAdmin, _ := c.Locals("is_super_admin").(bool)
 	return utils.OK(c, map[string]any{
-		"user_id":        userID,
+		"user_id":        userID.String(),
 		"email":          c.Locals("email"),
 		"is_super_admin": isAdmin,
 	})
 }
 
 func (h *AuthHandler) ListUsers(c *fiber.Ctx) error {
-	limit := c.QueryInt("limit", 20)
-	offset := c.QueryInt("offset", 0)
+	p := utils.ParsePagination(c)
 
-	users, total, err := h.authService.ListUsers(c.Context(), limit, offset)
+	users, total, err := h.authService.ListUsers(c.Context(), p.Limit, p.Offset)
 	if err != nil {
 		return utils.InternalError(c, "failed to list users")
 	}
 
-	return utils.Paginated(c, users, total, limit, offset)
+	return utils.Paginated(c, users, total, p.Limit, p.Offset)
 }
 
 func (h *AuthHandler) SuspendUser(c *fiber.Ctx) error {
-	actorIDStr := c.Locals("user_id").(string)
-	actorID, err := uuid.Parse(actorIDStr)
-	if err != nil {
+	actorID, ok := utils.GetUserID(c)
+	if !ok {
 		return utils.BadRequest(c, "invalid actor")
 	}
 
-	targetID, err := uuid.Parse(c.Params("userId"))
+	targetID, err := utils.ParseUUIDParam(c, "userId", "user")
 	if err != nil {
 		return utils.BadRequest(c, "invalid user id")
 	}
@@ -100,7 +97,7 @@ func (h *AuthHandler) SuspendUser(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) ActivateUser(c *fiber.Ctx) error {
-	targetID, err := uuid.Parse(c.Params("userId"))
+	targetID, err := utils.ParseUUIDParam(c, "userId", "user")
 	if err != nil {
 		return utils.BadRequest(c, "invalid user id")
 	}
@@ -113,7 +110,7 @@ func (h *AuthHandler) ActivateUser(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) GetUser(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("userId"))
+	id, err := utils.ParseUUIDParam(c, "userId", "user")
 	if err != nil {
 		return utils.BadRequest(c, "invalid user id")
 	}

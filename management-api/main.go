@@ -38,7 +38,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authService)
 	appHandler := handler.NewAppHandler(appService, db)
-	keyHandler := handler.NewAPIKeyHandler(keyService, keyRepo)
+	keyHandler := handler.NewAPIKeyHandler(keyService)
 	domainHandler := handler.NewDomainHandler(domainService)
 
 	authMW := middleware.NewAuthMiddleware(cfg.JWT)
