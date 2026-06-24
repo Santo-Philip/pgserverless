@@ -1,18 +1,22 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/nexbic/platform/management-api/service"
+	"github.com/nexbic/platform/shared/database"
 	"github.com/nexbic/platform/shared/utils"
 )
 
 type AppHandler struct {
 	appService *service.AppService
+	db         *database.DB
 }
 
-func NewAppHandler(appService *service.AppService) *AppHandler {
-	return &AppHandler{appService: appService}
+func NewAppHandler(appService *service.AppService, db *database.DB) *AppHandler {
+	return &AppHandler{appService: appService, db: db}
 }
 
 func (h *AppHandler) Create(c *fiber.Ctx) error {
@@ -82,12 +86,40 @@ func (h *AppHandler) CreateBackup(c *fiber.Ctx) error {
 }
 
 func (h *AppHandler) GetSettings(c *fiber.Ctx) error {
-	return utils.OK(c, map[string]interface{}{
-		"region":          "us-east",
-		"default_visibility": "public",
-	})
+	var rawSettings []byte
+	err := h.db.QueryRow(c.Context(), "SELECT settings::text FROM platform_settings WHERE id = 1").Scan(&rawSettings)
+	if err != nil {
+		return utils.InternalError(c, "failed to load settings")
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(rawSettings, &settings); err != nil {
+		return utils.InternalError(c, "failed to parse settings")
+	}
+
+	return utils.OK(c, settings)
 }
 
 func (h *AppHandler) UpdateSettings(c *fiber.Ctx) error {
+	var updates map[string]interface{}
+	if err := c.BodyParser(&updates); err != nil {
+		return utils.BadRequest(c, "invalid request body")
+	}
+
+	var currentRaw []byte
+	h.db.QueryRow(c.Context(), "SELECT settings::text FROM platform_settings WHERE id = 1").Scan(&currentRaw)
+
+	var current map[string]interface{}
+	json.Unmarshal(currentRaw, &current)
+
+	for k, v := range updates {
+		current[k] = v
+	}
+
+	merged, _ := json.Marshal(current)
+	if err := h.db.Exec(c.Context(), "UPDATE platform_settings SET settings = $1::jsonb, updated_at = NOW() WHERE id = 1", string(merged)); err != nil {
+		return utils.InternalError(c, "failed to save settings")
+	}
+
 	return utils.OK(c, map[string]string{"message": "settings updated"})
 }

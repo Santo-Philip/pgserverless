@@ -36,7 +36,7 @@ func main() {
 	domainService := service.NewDomainService(domainRepo)
 
 	authHandler := handler.NewAuthHandler(authService)
-	appHandler := handler.NewAppHandler(appService)
+	appHandler := handler.NewAppHandler(appService, db)
 	keyHandler := handler.NewAPIKeyHandler(keyService, keyRepo)
 	domainHandler := handler.NewDomainHandler(domainService)
 
