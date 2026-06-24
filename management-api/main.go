@@ -59,32 +59,32 @@ func main() {
 	api.Post("/auth/login", authHandler.Login)
 	api.Post("/auth/refresh", authHandler.RefreshToken)
 
-	api.Get("/me", authMW.RequireAuth(), authHandler.Me)
+	api.Get("/me", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.Me)
 
-	api.Post("/apps", authMW.RequireAuth(), appHandler.Create)
-	api.Get("/apps", authMW.RequireAuth(), appHandler.List)
-	api.Get("/apps/:id", authMW.RequireAuth(), appHandler.GetByID)
-	api.Delete("/apps/:id", authMW.RequireAuth(), appHandler.Delete)
+	api.Post("/apps", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.Create)
+	api.Get("/apps", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.List)
+	api.Get("/apps/:id", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.GetByID)
+	api.Delete("/apps/:id", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.Delete)
 
-	api.Post("/apps/:id/apikey", authMW.RequireAuth(), keyHandler.Create)
-	api.Get("/apps/:id/apikey", authMW.RequireAuth(), keyHandler.List)
-	api.Delete("/apps/:id/apikey/:keyId", authMW.RequireAuth(), keyHandler.Deactivate)
+	api.Post("/apps/:id/apikey", authMW.RequireAuth(), authMW.RequireAdmin(), keyHandler.Create)
+	api.Get("/apps/:id/apikey", authMW.RequireAuth(), authMW.RequireAdmin(), keyHandler.List)
+	api.Delete("/apps/:id/apikey/:keyId", authMW.RequireAuth(), authMW.RequireAdmin(), keyHandler.Deactivate)
 
-	api.Get("/apps/:id/domains", authMW.RequireAuth(), domainHandler.List)
-	api.Post("/apps/:id/domains", authMW.RequireAuth(), domainHandler.Create)
-	api.Delete("/apps/:id/domains/:domainId", authMW.RequireAuth(), domainHandler.Delete)
-	api.Post("/apps/:id/domains/:domainId/verify", authMW.RequireAuth(), domainHandler.Verify)
+	api.Get("/apps/:id/domains", authMW.RequireAuth(), authMW.RequireAdmin(), domainHandler.List)
+	api.Post("/apps/:id/domains", authMW.RequireAuth(), authMW.RequireAdmin(), domainHandler.Create)
+	api.Delete("/apps/:id/domains/:domainId", authMW.RequireAuth(), authMW.RequireAdmin(), domainHandler.Delete)
+	api.Post("/apps/:id/domains/:domainId/verify", authMW.RequireAuth(), authMW.RequireAdmin(), domainHandler.Verify)
 
-	api.Get("/users", authMW.RequireAuth(), authHandler.ListUsers)
-	api.Get("/users/:userId", authMW.RequireAuth(), authHandler.GetUser)
+	api.Get("/users", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.ListUsers)
+	api.Get("/users/:userId", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.GetUser)
 	api.Post("/users/:userId/suspend", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.SuspendUser)
 	api.Post("/users/:userId/activate", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.ActivateUser)
 
-	api.Get("/backups", authMW.RequireAuth(), appHandler.ListBackups)
-	api.Post("/backups", authMW.RequireAuth(), appHandler.CreateBackup)
+	api.Get("/backups", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.ListBackups)
+	api.Post("/backups", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.CreateBackup)
 
-	api.Get("/settings", authMW.RequireAuth(), appHandler.GetSettings)
-	api.Patch("/settings", authMW.RequireAuth(), appHandler.UpdateSettings)
+	api.Get("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.GetSettings)
+	api.Patch("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.UpdateSettings)
 
 	f.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
