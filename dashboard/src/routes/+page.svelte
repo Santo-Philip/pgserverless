@@ -6,6 +6,7 @@
 	import LoadingCard from '$lib/components/LoadingCard.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import { goto } from '$app/navigation';
+	import type { App } from '$lib/types';
 
 	let loading = $state(true);
 	let stats = $state({

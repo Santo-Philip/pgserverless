@@ -5,6 +5,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Alert from '$lib/components/Alert.svelte';
+	import type { App } from '$lib/types';
 
 	let app = $state<App | null>(null);
 	let loading = $state(true);
@@ -15,7 +16,7 @@
 
 	onMount(async () => {
 		try {
-			app = await api.getApp($page.params.id);
+			app = await api.getApp($page.params.id!);
 		} catch {}
 		loading = false;
 	});
@@ -37,7 +38,7 @@
 	async function handleDelete() {
 		deleteLoading = true;
 		try {
-			await api.deleteApp($page.params.id);
+			await api.deleteApp($page.params.id!);
 			window.location.href = '/apps';
 		} catch { message = 'Failed to delete app.'; }
 		deleteLoading = false;

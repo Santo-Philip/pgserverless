@@ -8,6 +8,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import type { App } from '$lib/types';
 
 	let apps = $state<App[]>([]);
 	let loading = $state(true);
@@ -51,7 +52,7 @@
 		deletingLoading = true;
 		try {
 			await api.deleteApp(deleting.id);
-			apps = apps.filter(a => a.id !== deleting.id);
+			apps = apps.filter(a => a.id !== deleting!.id);
 		} catch {}
 		deletingLoading = false;
 		deleting = null;

@@ -6,13 +6,14 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import LoadingCard from '$lib/components/LoadingCard.svelte';
+	import type { App } from '$lib/types';
 
 	let app = $state<App | null>(null);
 	let loading = $state(true);
 
 	onMount(async () => {
 		try {
-			app = await api.getApp($page.params.id);
+			app = await api.getApp($page.params.id!);
 		} catch {}
 		loading = false;
 	});
@@ -48,14 +49,14 @@
 					<p class="text-xs mb-1" style="color: var(--text-tertiary)">API Base URL</p>
 					<div class="flex items-center justify-between p-3 rounded-lg font-mono text-sm" style="background-color: var(--bg-tertiary);">
 						<span>/api/v1/{app.slug}</span>
-						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app.slug}`)} class="btn btn-ghost btn-sm">Copy</button>
+						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app!.slug}`)} class="btn btn-ghost btn-sm">Copy</button>
 					</div>
 				</div>
 				<div>
 					<p class="text-xs mb-1" style="color: var(--text-tertiary)">Example: GET /users</p>
 					<div class="flex items-center justify-between p-3 rounded-lg font-mono text-sm" style="background-color: var(--bg-tertiary);">
 						<span>GET /api/v1/{app.slug}/users</span>
-						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app.slug}/users`)} class="btn btn-ghost btn-sm">Copy</button>
+						<button onclick={() => navigator.clipboard.writeText(`/api/v1/${app!.slug}/users`)} class="btn btn-ghost btn-sm">Copy</button>
 					</div>
 				</div>
 			</div>

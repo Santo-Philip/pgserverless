@@ -6,6 +6,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import type { APIKey } from '$lib/types';
 
 	let keys: { app_name: string; keys: APIKey[] }[] = [];
 	let loading = $state(true);

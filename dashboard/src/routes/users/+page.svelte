@@ -7,6 +7,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
+	import type { User } from '$lib/types';
 
 	let users = $state<User[]>([]);
 	let loading = $state(true);

@@ -6,6 +6,7 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import type { AuditLog } from '$lib/types';
 
 	let logs = $state<AuditLog[]>([]);
 	let loading = $state(true);

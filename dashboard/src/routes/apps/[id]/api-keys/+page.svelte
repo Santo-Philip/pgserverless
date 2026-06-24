@@ -7,6 +7,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import type { APIKey } from '$lib/types';
 
 	let keys = $state<APIKey[]>([]);
 	let loading = $state(true);
@@ -17,14 +18,14 @@
 
 	onMount(async () => {
 		try {
-			keys = await api.listAPIKeys($page.params.id);
+			keys = await api.listAPIKeys($page.params.id!);
 		} catch {}
 		loading = false;
 	});
 
 	async function handleGenerate() {
 		try {
-			const key = await api.createAPIKey($page.params.id, newKeyName, newKeyType);
+			const key = await api.createAPIKey($page.params.id!, newKeyName, newKeyType);
 			keys = [key, ...keys];
 			newKeyResult = key;
 			newKeyName = '';
@@ -34,7 +35,7 @@
 
 	async function handleDeactivate(keyId: string) {
 		try {
-			await api.deactivateAPIKey($page.params.id, keyId);
+			await api.deactivateAPIKey($page.params.id!, keyId);
 			keys = keys.map(k => k.id === keyId ? { ...k, is_active: false } : k);
 		} catch {}
 	}

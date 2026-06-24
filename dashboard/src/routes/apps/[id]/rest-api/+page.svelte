@@ -26,7 +26,7 @@
 	let activeLang = $state('curl');
 	let langs = ['curl', 'js', 'go', 'python'];
 	let langLabels: Record<string, string> = { curl: 'cURL', js: 'JavaScript', go: 'Go', python: 'Python' };
-	let currentSnippet = $derived(snippets[activeLang]);
+	let currentSnippet = $derived(snippets[activeLang as keyof typeof snippets]);
 </script>
 
 <div class="space-y-6">

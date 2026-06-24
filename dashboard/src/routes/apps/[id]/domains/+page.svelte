@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client';
+	import type { Domain } from '$lib/types';
 
 	let domains = $state<Domain[]>([]);
 	let loading = $state(true);
@@ -10,7 +11,7 @@
 
 	onMount(async () => {
 		try {
-			domains = await api.listDomains($page.params.id);
+			domains = await api.listDomains($page.params.id!);
 		} catch (e) {
 			console.error('Failed to load domains', e);
 		} finally {
@@ -21,7 +22,7 @@
 	async function handleAdd() {
 		error = '';
 		try {
-			const domain = await api.createDomain($page.params.id, newDomain);
+			const domain = await api.createDomain($page.params.id!, newDomain);
 			domains = [domain, ...domains];
 			newDomain = '';
 		} catch (e) {
@@ -31,7 +32,7 @@
 
 	async function handleVerify(domainId: string) {
 		try {
-			await api.verifyDomain($page.params.id, domainId);
+			await api.verifyDomain($page.params.id!, domainId);
 			domains = domains.map((d) =>
 				d.id === domainId ? { ...d, verified: true, status: 'active' as const } : d
 			);
@@ -43,7 +44,7 @@
 	async function handleDelete(domainId: string) {
 		if (!confirm('Delete this domain?')) return;
 		try {
-			await api.deleteDomain($page.params.id, domainId);
+			await api.deleteDomain($page.params.id!, domainId);
 			domains = domains.filter((d) => d.id !== domainId);
 		} catch (e) {
 			console.error('Failed to delete domain', e);

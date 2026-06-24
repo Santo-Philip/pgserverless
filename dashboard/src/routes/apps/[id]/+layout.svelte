@@ -7,6 +7,7 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import LoadingCard from '$lib/components/LoadingCard.svelte';
 	import type { Snippet } from 'svelte';
+	import type { App } from '$lib/types';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -25,7 +26,7 @@
 
 	onMount(async () => {
 		try {
-			app = await api.getApp($page.params.id);
+			app = await api.getApp($page.params.id!);
 		} catch {}
 		loading = false;
 	});

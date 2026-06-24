@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import type { AuthResponse, PaginatedResponse, App, APIKey, Domain, User, Backup, PlatformSettings } from '$lib/types';
 
 function getBaseUrl(): string {
 	if (browser) {

@@ -4,6 +4,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import Alert from '$lib/components/Alert.svelte';
+	import type { PlatformSettings } from '$lib/types';
 
 	let settings = $state<PlatformSettings | null>(null);
 	let loading = $state(true);
