@@ -155,6 +155,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: nexbic-dashboard
+    restart: unless-stopped
+    networks:
+      - internal
+    env_file:
+      - .env
+    environment:
+      VITE_API_URL: http://caddy:8080
+      ORIGIN: http://localhost:5173
+    depends_on:
+      - caddy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   caddy:
     image: caddy:2-alpine
     container_name: nexbic-caddy
@@ -164,6 +185,7 @@ services:
     ports:
       - "${API_PORT:-8080}:8080"
       - "${API_PORT_SSL:-8443}:443"
+      - "5173:5173"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -171,6 +193,7 @@ services:
     depends_on:
       - gateway
       - management-api
+      - dashboard
     logging:
       driver: "json-file"
       options:

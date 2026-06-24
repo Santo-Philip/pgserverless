@@ -37,7 +37,7 @@
 		}
 
 		handle {
-			respond "not found" 404
+			reverse_proxy dashboard:5173
 		}
 	}
 }
