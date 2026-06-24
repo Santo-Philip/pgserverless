@@ -77,14 +77,6 @@ func (h *AppHandler) Delete(c *fiber.Ctx) error {
 	return utils.OK(c, map[string]string{"message": "app deleted"})
 }
 
-func (h *AppHandler) ListBackups(c *fiber.Ctx) error {
-	return utils.OK(c, []interface{}{})
-}
-
-func (h *AppHandler) CreateBackup(c *fiber.Ctx) error {
-	return utils.OK(c, map[string]string{"message": "backup started"})
-}
-
 func (h *AppHandler) GetSettings(c *fiber.Ctx) error {
 	var rawSettings []byte
 	err := h.db.QueryRow(c.Context(), "SELECT settings::text FROM platform_settings WHERE id = 1").Scan(&rawSettings)

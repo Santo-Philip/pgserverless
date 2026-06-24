@@ -230,10 +230,6 @@ func (s *AppService) GetApp(ctx context.Context, id uuid.UUID) (*models.App, err
 	return s.appRepo.GetByID(ctx, id)
 }
 
-func (s *AppService) GetAppBySlug(ctx context.Context, slug string) (*models.App, error) {
-	return s.appRepo.GetBySlug(ctx, slug)
-}
-
 func (s *AppService) ListApps(ctx context.Context, orgID *uuid.UUID, limit, offset int) ([]models.App, int, error) {
 	return s.appRepo.List(ctx, orgID, limit, offset)
 }

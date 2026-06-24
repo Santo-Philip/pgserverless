@@ -1,24 +1,12 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type JSON map[string]interface{}
-
-type StringList []string
-
-func (sl StringList) Contains(s string) bool {
-	for _, v := range sl {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
 
 type PaginationParams struct {
 	Limit  int `json:"limit"`
@@ -51,19 +39,6 @@ func ParseUUID(s string) (uuid.UUID, error) {
 	return uuid.Parse(s)
 }
 
-func MustParseUUID(s string) uuid.UUID {
-	return uuid.MustParse(s)
-}
-
 func Now() time.Time {
 	return time.Now().UTC()
-}
-
-func ToJSON(v interface{}) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-func FromJSON(s string, v interface{}) error {
-	return json.Unmarshal([]byte(s), v)
 }

@@ -189,13 +189,6 @@ func portFromHost(host string) string {
 	return "0"
 }
 
-func (c *Config) DatabaseDSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		c.Database.User, c.Database.Password,
-		c.Database.Host, c.Database.Port,
-		c.Database.DBName, c.Database.SSLMode)
-}
-
 func (c *Config) RedisAddr() string {
 	return fmt.Sprintf("%s:%d", c.Redis.Host, c.Redis.Port)
 }

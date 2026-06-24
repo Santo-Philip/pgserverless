@@ -23,9 +23,9 @@ type APIKey struct {
 	KeyType       KeyType    `json:"key_type"`
 	KeyHash       string     `json:"-"`
 	KeyPrefix     string     `json:"key_prefix"`
-	Scopes        StringList `json:"scopes"`
+	Scopes        []string   `json:"scopes"`
 	RateLimit     int        `json:"rate_limit"`
-	AllowedIPs    StringList `json:"allowed_ips,omitempty"`
+	AllowedIPs    []string   `json:"allowed_ips,omitempty"`
 	LastUsedAt    *time.Time `json:"last_used_at,omitempty"`
 	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
 	IsActive      bool       `json:"is_active"`
@@ -36,7 +36,7 @@ type APIKey struct {
 type CreateAPIKeyRequest struct {
 	Name      string     `json:"name"`
 	KeyType   KeyType    `json:"key_type"`
-	Scopes    StringList `json:"scopes"`
+	Scopes    []string   `json:"scopes"`
 	RateLimit int        `json:"rate_limit"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }

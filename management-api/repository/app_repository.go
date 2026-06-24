@@ -104,10 +104,3 @@ func (r *AppRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	`, models.AppStatusDeleted, now, id)
 	return err
 }
-
-func (r *AppRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.AppStatus) error {
-	_, err := r.db.Pool.Exec(ctx, `
-		UPDATE apps SET status = $1, updated_at = NOW() WHERE id = $2
-	`, status, id)
-	return err
-}

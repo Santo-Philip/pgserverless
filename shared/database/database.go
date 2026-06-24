@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -83,10 +82,4 @@ func (db *DB) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 
 	return tx.Commit(ctx)
-}
-
-func (db *DB) Now(ctx context.Context) (time.Time, error) {
-	var t time.Time
-	err := db.QueryRow(ctx, "SELECT NOW()").Scan(&t)
-	return t, err
 }

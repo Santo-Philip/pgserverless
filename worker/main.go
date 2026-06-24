@@ -42,9 +42,6 @@ func main() {
 	mux.HandleFunc(tasks.TypeSchemaRefresh, func(ctx context.Context, t *asynq.Task) error {
 		return tasks.HandleSchemaRefresh(ctx, t, db)
 	})
-	mux.HandleFunc(tasks.TypeBackup, func(ctx context.Context, t *asynq.Task) error {
-		return tasks.HandleBackup(ctx, t, db)
-	})
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
