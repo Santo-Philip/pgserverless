@@ -6,6 +6,8 @@
 
 	let users = $state<User[]>([]);
 	let loading = $state(true);
+	let currentUserId = $state('');
+	let processing = $state<Record<string, boolean>>({});
 
 	onMount(async () => {
 		if (!$isAuthenticated) {
@@ -14,6 +16,8 @@
 		}
 
 		try {
+			const me = await api.get<{ user_id: string }>('/api/v1/platform/me');
+			currentUserId = me.user_id;
 			const result = await api.listUsers();
 			users = result.data;
 		} catch (e) {
@@ -22,6 +26,24 @@
 			loading = false;
 		}
 	});
+
+	async function toggleStatus(user: User) {
+		if (processing[user.id]) return;
+		processing[user.id] = true;
+		try {
+			if (user.status === 'active') {
+				await api.suspendUser(user.id);
+				user.status = 'suspended';
+			} else {
+				await api.activateUser(user.id);
+				user.status = 'active';
+			}
+		} catch (e) {
+			console.error('Failed to update user', e);
+		} finally {
+			processing[user.id] = false;
+		}
+	}
 </script>
 
 <div class="max-w-6xl mx-auto">
@@ -42,6 +64,7 @@
 						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
 						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
 						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+						<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-200">
@@ -50,11 +73,22 @@
 							<td class="px-6 py-4 font-medium">{user.name || '—'}</td>
 							<td class="px-6 py-4">{user.email}</td>
 							<td class="px-6 py-4">
-								<span class="text-xs uppercase px-2 py-1 rounded {user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+								<span class="text-xs uppercase px-2 py-1 rounded {user.status === 'active' ? 'bg-green-100 text-green-700' : user.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
 									{user.status}
 								</span>
 							</td>
 							<td class="px-6 py-4 text-sm text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>
+							<td class="px-6 py-4 text-right">
+								{#if user.id !== currentUserId}
+									<button
+										onclick={() => toggleStatus(user)}
+										disabled={processing[user.id]}
+										class="text-sm px-3 py-1 rounded border {user.status === 'active' ? 'border-red-300 text-red-600 hover:bg-red-50' : 'border-green-300 text-green-600 hover:bg-green-50'} disabled:opacity-50"
+									>
+										{processing[user.id] ? '...' : user.status === 'active' ? 'Suspend' : 'Activate'}
+									</button>
+								{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>

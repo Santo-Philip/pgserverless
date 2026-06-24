@@ -134,6 +134,17 @@ func (s *AuthService) generateAuthResponse(ctx context.Context, user *models.Use
 	}, nil
 }
 
+func (s *AuthService) SuspendUser(ctx context.Context, actorID, targetID uuid.UUID) error {
+	if actorID == targetID {
+		return fmt.Errorf("cannot suspend yourself")
+	}
+	return s.userRepo.UpdateStatus(ctx, targetID, models.UserStatusSuspended)
+}
+
+func (s *AuthService) ActivateUser(ctx context.Context, targetID uuid.UUID) error {
+	return s.userRepo.UpdateStatus(ctx, targetID, models.UserStatusActive)
+}
+
 func (s *AuthService) ListUsers(ctx context.Context, limit, offset int) ([]models.User, int, error) {
 	return s.userRepo.List(ctx, limit, offset)
 }

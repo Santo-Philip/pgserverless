@@ -84,6 +84,11 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]models.
 	return users, total, nil
 }
 
+func (r *UserRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status models.UserStatus) error {
+	_, err := r.db.Pool.Exec(ctx, `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`, status, id)
+	return err
+}
+
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.Pool.Exec(ctx, `UPDATE users SET last_login_at = NOW() WHERE id = $1`, id)
 	return err

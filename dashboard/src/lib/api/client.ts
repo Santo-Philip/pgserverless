@@ -142,6 +142,14 @@ class ApiClient {
 		return this.get<User>(`/api/v1/platform/users/${id}`);
 	}
 
+	async suspendUser(id: string): Promise<void> {
+		return this.post(`/api/v1/platform/users/${id}/suspend`);
+	}
+
+	async activateUser(id: string): Promise<void> {
+		return this.post(`/api/v1/platform/users/${id}/activate`);
+	}
+
 	async listBackups(): Promise<Backup[]> {
 		return this.get<Backup[]>('/api/v1/platform/backups');
 	}

@@ -75,6 +75,38 @@ func (h *AuthHandler) ListUsers(c *fiber.Ctx) error {
 	return utils.Paginated(c, users, total, limit, offset)
 }
 
+func (h *AuthHandler) SuspendUser(c *fiber.Ctx) error {
+	actorIDStr := c.Locals("user_id").(string)
+	actorID, err := uuid.Parse(actorIDStr)
+	if err != nil {
+		return utils.BadRequest(c, "invalid actor")
+	}
+
+	targetID, err := uuid.Parse(c.Params("userId"))
+	if err != nil {
+		return utils.BadRequest(c, "invalid user id")
+	}
+
+	if err := h.authService.SuspendUser(c.Context(), actorID, targetID); err != nil {
+		return utils.BadRequest(c, err.Error())
+	}
+
+	return utils.OK(c, map[string]string{"status": "suspended"})
+}
+
+func (h *AuthHandler) ActivateUser(c *fiber.Ctx) error {
+	targetID, err := uuid.Parse(c.Params("userId"))
+	if err != nil {
+		return utils.BadRequest(c, "invalid user id")
+	}
+
+	if err := h.authService.ActivateUser(c.Context(), targetID); err != nil {
+		return utils.InternalError(c, err.Error())
+	}
+
+	return utils.OK(c, map[string]string{"status": "active"})
+}
+
 func (h *AuthHandler) GetUser(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("userId"))
 	if err != nil {
