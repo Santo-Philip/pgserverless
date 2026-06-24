@@ -12,7 +12,9 @@ services:
     env_file:
       - .env
     environment:
+      POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
       TZ: UTC
       PGTZ: UTC
     healthcheck:
@@ -190,7 +192,6 @@ services:
     ports:
       - "${API_PORT:-8080}:8080"
       - "${API_PORT_SSL:-8443}:443"
-      - "5173:5173"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
