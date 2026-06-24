@@ -1,0 +1,46 @@
+# Environment
+.env
+
+# PostgreSQL data
+postgres/data/
+
+# Backups
+backups/
+*.sql.gz
+
+# Go build artifacts
+gateway/gateway
+management-api/management-api
+worker/worker
+*.exe
+*.test
+*.out
+
+# SvelteKit
+dashboard/node_modules/
+dashboard/.svelte-kit/
+dashboard/build/
+dashboard/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Prometheus
+prometheus/data/
+
+# Grafana
+grafana/data/
+
+# Loki
+loki/data/

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: api_admin
+          POSTGRES_PASSWORD: test_password_123
+          POSTGRES_DB: postgres_api
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: platform/go.sum
+
+      - name: Init DB schema
+        run: |
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/001-schema.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/002-functions.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/003-roles.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/004-platform.sql
+
+      - name: Build
+        run: go build ./...
+
+      - name: Lint
+        run: |
+          go vet ./...
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform/dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: platform/dashboard/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build

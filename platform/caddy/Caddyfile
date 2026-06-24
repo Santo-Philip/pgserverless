@@ -1,0 +1,73 @@
+{
+	admin off
+}
+
+:8080 {
+	route {
+		header {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			X-XSS-Protection "1; mode=block"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		}
+
+		@management {
+			path /api/v1/platform/*
+		}
+
+		@gateway {
+			path /api/v1/*
+		}
+
+		@health {
+			path /health /ready
+		}
+
+		handle @health {
+			reverse_proxy gateway:8080
+		}
+
+		handle @management {
+			reverse_proxy management-api:8081
+		}
+
+		handle @gateway {
+			reverse_proxy gateway:8080
+		}
+
+		handle {
+			respond "not found" 404
+		}
+	}
+}
+
+*.api.localhost:8080 {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	@health {
+		path /health /ready
+	}
+
+	handle @health {
+		reverse_proxy gateway:8080
+	}
+
+	handle {
+		reverse_proxy gateway:8080
+	}
+}
+
+dashboard.localhost:8080 {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	handle {
+		reverse_proxy dashboard:5173
+	}
+}

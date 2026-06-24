@@ -1,0 +1,532 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nexbic Platform API",
+    "version": "1.0.0",
+    "description": "Multi-tenant backend platform API with automatic app provisioning, PostgreSQL schemas per tenant, and built-in authentication."
+  },
+  "servers": [
+    {
+      "url": "https://api.nexbic.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/v1/platform/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/v1/platform/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login with email and password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/platform/auth/refresh": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Refresh access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "401": { "description": "Invalid refresh token" }
+        }
+      }
+    },
+    "/api/v1/platform/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/platform/apps": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Create a new app",
+        "description": "Provisions a new PostgreSQL schema, creates roles, generates JWT secrets, and returns API keys.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 2, "maxLength": 255 },
+                  "slug": { "type": "string", "pattern": "^[a-z0-9-]+$", "minLength": 2, "maxLength": 100 },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "App created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app": { "$ref": "#/components/schemas/App" },
+                    "admin_key": { "$ref": "#/components/schemas/APIKeyResponse" },
+                    "service_key": { "$ref": "#/components/schemas/APIKeyResponse" },
+                    "jwt_secret": { "type": "string" },
+                    "connection_uri": { "type": "string", "format": "uri" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "get": {
+        "tags": ["Applications"],
+        "summary": "List all apps",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of apps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/App" } },
+                    "total": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "offset": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get app by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "App details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/App" } } } },
+          "404": { "description": "App not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Applications"],
+        "summary": "Delete an app",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "App deleted" },
+          "404": { "description": "App not found" }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}/apikey": {
+      "post": {
+        "tags": ["API Keys"],
+        "summary": "Create API key for app",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "key_type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "key_type": { "type": "string", "enum": ["publishable", "secret", "service", "admin"] },
+                  "scopes": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "API key created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIKeyResponse" } } } }
+        }
+      },
+      "get": {
+        "tags": ["API Keys"],
+        "summary": "List API keys for app",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "List of API keys", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/APIKey" } } } } }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}/apikey/{keyId}": {
+      "delete": {
+        "tags": ["API Keys"],
+        "summary": "Deactivate an API key",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "keyId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "API key deactivated" }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}/domains": {
+      "get": {
+        "tags": ["Domains"],
+        "summary": "List custom domains for app",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "List of domains", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Domain" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Domains"],
+        "summary": "Add custom domain to app",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["domain"],
+                "properties": {
+                  "domain": { "type": "string", "example": "api.example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Domain added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Domain" } } } }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}/domains/{domainId}": {
+      "delete": {
+        "tags": ["Domains"],
+        "summary": "Remove custom domain",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "domainId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Domain removed" }
+        }
+      }
+    },
+    "/api/v1/platform/apps/{id}/domains/{domainId}/verify": {
+      "post": {
+        "tags": ["Domains"],
+        "summary": "Verify domain ownership",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "domainId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Domain verified" }
+        }
+      }
+    },
+    "/api/v1/platform/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of users" }
+        }
+      }
+    },
+    "/api/v1/platform/users/{userId}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "User details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/api/v1/platform/backups": {
+      "get": {
+        "tags": ["Backups"],
+        "summary": "List all backups",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of backups" }
+        }
+      },
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Trigger a new backup",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Backup started" }
+        }
+      }
+    },
+    "/api/v1/platform/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get platform settings",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Platform settings" }
+        }
+      },
+      "patch": {
+        "tags": ["Settings"],
+        "summary": "Update platform settings",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Settings updated" }
+        }
+      }
+    },
+    "/api/v1/{app_slug}": {
+      "get": {
+        "tags": ["Developer API (PostgREST)"],
+        "summary": "Access the app's data API (root)",
+        "description": "This endpoint proxies to PostgREST for the app's schema. Use standard PostgREST syntax for filtering, sorting, and pagination."
+      }
+    },
+    "/api/v1/{app_slug}/{table}": {
+      "get": {
+        "tags": ["Developer API (PostgREST)"],
+        "summary": "List rows from a table",
+        "description": "Supports PostgREST query parameters: select, order, limit, offset, and filters."
+      },
+      "post": {
+        "tags": ["Developer API (PostgREST)"],
+        "summary": "Insert a row into a table"
+      },
+      "patch": {
+        "tags": ["Developer API (PostgREST)"],
+        "summary": "Update rows in a table"
+      },
+      "delete": {
+        "tags": ["Developer API (PostgREST)"],
+        "summary": "Delete rows from a table"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "App": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "org_id": { "type": "string", "format": "uuid" },
+          "owner_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "schema_name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended", "deleted"] },
+          "region": { "type": "string", "default": "us-east" },
+          "visibility": { "type": "string", "enum": ["public", "private"] },
+          "settings": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "user": { "$ref": "#/components/schemas/User" },
+          "expires_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "APIKey": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "app_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "key_type": { "type": "string", "enum": ["publishable", "secret", "service", "admin"] },
+          "key_prefix": { "type": "string" },
+          "scopes": { "type": "array", "items": { "type": "string" } },
+          "is_active": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "APIKeyResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "key_type": { "type": "string" },
+          "key_prefix": { "type": "string" },
+          "raw_key": { "type": "string" },
+          "scopes": { "type": "array", "items": { "type": "string" } },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Domain": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "app_id": { "type": "string", "format": "uuid" },
+          "domain": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "active", "failed"] },
+          "verified": { "type": "boolean" },
+          "verification_token": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
