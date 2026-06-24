@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-const PUBLIC_API_PORT = env.PUBLIC_API_PORT || '8080';
+const PUBLIC_API_PORT = env.PUBLIC_API_PORT || '2121';
 
 function getBaseUrl(): string {
 	if (browser) {
