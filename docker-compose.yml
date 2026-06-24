@@ -174,7 +174,6 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://caddy:8080
       ORIGIN: http://localhost:8080
       PORT: 5173
     logging:
