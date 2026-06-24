@@ -168,8 +168,7 @@ services:
     environment:
       VITE_API_URL: http://caddy:8080
       ORIGIN: http://localhost:5173
-    depends_on:
-      - caddy
+    depends_on: []
     logging:
       driver: "json-file"
       options:
