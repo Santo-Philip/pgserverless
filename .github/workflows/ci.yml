@@ -41,6 +41,7 @@ jobs:
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/003-roles.sql
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/004-platform.sql
           PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/005-domains.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/006-super-admin.sql
 
       - name: Build
         run: go build ./...
