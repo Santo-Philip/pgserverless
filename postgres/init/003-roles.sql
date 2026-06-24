@@ -2,7 +2,7 @@ INSERT INTO roles (name, description, is_system) VALUES
     ('anon', 'Anonymous unauthenticated user', TRUE),
     ('authenticated', 'Authenticated user', TRUE),
     ('admin', 'Administrator with full access', TRUE)
-ON CONFLICT (name) WHERE is_system = TRUE DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO permissions (resource, action, description) VALUES
     ('users', 'read', 'Read user profiles'),
