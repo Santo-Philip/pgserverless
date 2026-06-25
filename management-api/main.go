@@ -36,11 +36,13 @@ func main() {
 	keyService := service.NewAPIKeyService(keyRepo)
 	domainService := service.NewDomainService(domainRepo)
 	settingsService := service.NewSettingsService(db)
+	extensionService := service.NewExtensionService(db)
 
 	authHandler := handler.NewAuthHandler(authService)
 	appHandler := handler.NewAppHandler(appService, settingsService)
 	keyHandler := handler.NewAPIKeyHandler(keyService)
 	domainHandler := handler.NewDomainHandler(domainService)
+	extensionHandler := handler.NewExtensionHandler(extensionService)
 
 	authMW := middleware.NewAuthMiddleware(cfg.JWT)
 
@@ -81,6 +83,9 @@ func main() {
 	api.Get("/users/:userId", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.GetUser)
 	api.Post("/users/:userId/suspend", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.SuspendUser)
 	api.Post("/users/:userId/activate", authMW.RequireAuth(), authMW.RequireAdmin(), authHandler.ActivateUser)
+
+	api.Get("/apps/:id/extensions", authMW.RequireAuth(), authMW.RequireAdmin(), extensionHandler.List)
+	api.Post("/apps/:id/extensions/toggle", authMW.RequireAuth(), authMW.RequireAdmin(), extensionHandler.Toggle)
 
 	api.Get("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.GetSettings)
 	api.Patch("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.UpdateSettings)

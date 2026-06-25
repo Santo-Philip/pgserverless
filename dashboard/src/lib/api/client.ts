@@ -183,6 +183,14 @@ class ApiClient {
 	async updateSettings(settings: Partial<PlatformSettings>): Promise<void> {
 		return this.patch('/api/v1/platform/settings', settings);
 	}
+
+	async listExtensions(appId: string): Promise<{name: string; version: string; description: string; installed: boolean}[]> {
+		return this.get(`/api/v1/platform/apps/${appId}/extensions`);
+	}
+
+	async toggleExtension(appId: string, name: string, install: boolean): Promise<void> {
+		await this.post(`/api/v1/platform/apps/${appId}/extensions/toggle`, { name, install });
+	}
 }
 
 export const api = new ApiClient();

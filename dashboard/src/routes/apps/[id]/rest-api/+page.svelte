@@ -1,32 +1,45 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
+	import { api } from '$lib/api/client';
 	import Card from '$lib/components/Card.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import type { App } from '$lib/types';
 
-	let appSlug = $derived($page.params.id);
+	let appSlug = $derived($page.params.id ?? '');
+	let app = $state<App | null>(null);
 
-	let endpoints = $derived([
-		{ method: 'GET', path: `/api/v1/${appSlug}/users`, description: 'List all users' },
-		{ method: 'GET', path: `/api/v1/${appSlug}/users/:id`, description: 'Get user by ID' },
-		{ method: 'POST', path: `/api/v1/${appSlug}/users`, description: 'Create a user' },
-		{ method: 'PATCH', path: `/api/v1/${appSlug}/users/:id`, description: 'Update a user' },
-		{ method: 'DELETE', path: `/api/v1/${appSlug}/users/:id`, description: 'Delete a user' },
-	]);
-
-	let origin = $derived(browser ? window.location.origin : 'http://localhost:8080');
-
-	let snippets = $derived({
-		curl: `curl -H "apikey: YOUR_API_KEY" ${origin}/api/v1/${appSlug}/users`,
-		js: `fetch('/api/v1/${appSlug}/users', { headers: { apikey: 'YOUR_API_KEY' } })`,
-		go: `req, _ := http.NewRequest("GET", "/api/v1/${appSlug}/users", nil)\nreq.Header.Set("apikey", "YOUR_API_KEY")`,
-		python: `import requests\nrequests.get('/api/v1/${appSlug}/users', headers={'apikey': 'YOUR_API_KEY'})`,
-	});
+	let origin = $derived(browser ? window.location.origin : '');
+	let slug = $derived(app?.slug || appSlug);
 
 	let activeLang = $state('curl');
 	let langs = ['curl', 'js', 'go', 'python'];
 	let langLabels: Record<string, string> = { curl: 'cURL', js: 'JavaScript', go: 'Go', python: 'Python' };
+
+	let snippets = $derived({
+		curl: `curl -H "apikey: YOUR_API_KEY" ${origin}/api/v1/${slug}/users`,
+		js: `const response = await fetch('${origin}/api/v1/${slug}/users', {\n  headers: { apikey: 'YOUR_API_KEY' }\n});\nconst data = await response.json();`,
+		go: `req, _ := http.NewRequest("GET", "${origin}/api/v1/${slug}/users", nil)\nreq.Header.Set("apikey", "YOUR_API_KEY")\nresp, _ := http.DefaultClient.Do(req)\nbody, _ := io.ReadAll(resp.Body)\nfmt.Println(string(body))`,
+		python: `import requests\n\nresponse = requests.get(\n    '${origin}/api/v1/${slug}/users',\n    headers={'apikey': 'YOUR_API_KEY'}\n)\nprint(response.json())`,
+	});
+
 	let currentSnippet = $derived(snippets[activeLang as keyof typeof snippets]);
+
+	let endpoints = $derived([
+		{ method: 'GET', path: `/api/v1/${slug}/{table}`, description: 'List all rows' },
+		{ method: 'GET', path: `/api/v1/${slug}/{table}?id=eq.1`, description: 'Filter rows' },
+		{ method: 'POST', path: `/api/v1/${slug}/{table}`, description: 'Create a row' },
+		{ method: 'PATCH', path: `/api/v1/${slug}/{table}?id=eq.1`, description: 'Update rows' },
+		{ method: 'DELETE', path: `/api/v1/${slug}/{table}?id=eq.1`, description: 'Delete rows' },
+	]);
+
+	import { onMount } from 'svelte';
+	onMount(async () => {
+		try {
+			const result = await api.getApp(appSlug);
+			app = result;
+		} catch {}
+	});
 </script>
 
 <div class="space-y-6">
