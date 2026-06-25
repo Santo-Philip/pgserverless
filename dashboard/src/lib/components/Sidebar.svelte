@@ -8,23 +8,54 @@
 	let { children }: { children: Snippet } = $props();
 
 	let commandOpen = $state(false);
+	let sidebarOpen = $state(false);
+
+	function toggleSidebar() {
+		sidebarOpen = !sidebarOpen;
+	}
+
+	function closeSidebar() {
+		sidebarOpen = false;
+	}
 
 	function handleKeydown(e: KeyboardEvent) {
 		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 			e.preventDefault();
 			commandOpen = true;
 		}
-		if (e.key === 'Escape') commandOpen = false;
+		if (e.key === 'Escape') {
+			commandOpen = false;
+			closeSidebar();
+		}
 	}
+
+	$effect(() => {
+		$page.url.pathname;
+		closeSidebar();
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="flex h-screen overflow-hidden" style="background-color: var(--bg-primary);">
-	<aside class="flex-shrink-0 flex flex-col border-r" style="width: var(--sidebar-width); background-color: var(--bg-secondary); border-color: var(--border-primary);">
-		<div class="flex items-center gap-3 px-5 h-14 border-b flex-shrink-0" style="border-color: var(--border-primary);">
-			<div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold" style="background-color: var(--accent); color: #fff;">N</div>
-			<span class="font-semibold text-sm">Nexbic</span>
+	{#if sidebarOpen}
+		<button class="fixed inset-0 z-40 bg-black/50 lg:hidden" onclick={closeSidebar} aria-label="Close sidebar"></button>
+	{/if}
+
+	<aside
+		class="flex-shrink-0 flex flex-col border-r fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0"
+		class:-translate-x-full={!sidebarOpen}
+		class:translate-x-0={sidebarOpen}
+		style="width: var(--sidebar-width); background-color: var(--bg-secondary); border-color: var(--border-primary);"
+	>
+		<div class="flex items-center justify-between gap-3 px-5 h-14 border-b flex-shrink-0" style="border-color: var(--border-primary);">
+			<div class="flex items-center gap-3">
+				<div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold" style="background-color: var(--accent); color: #fff;">N</div>
+				<span class="font-semibold text-sm">Nexbic</span>
+			</div>
+			<button onclick={closeSidebar} class="lg:hidden p-1 rounded hover:bg-[var(--bg-hover)]" style="color: var(--text-secondary);">
+				<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+			</button>
 		</div>
 
 		<nav class="flex-1 overflow-y-auto p-3 space-y-1">
@@ -43,9 +74,12 @@
 		</nav>
 	</aside>
 
-	<div class="flex-1 flex flex-col overflow-hidden">
-		<header class="flex items-center justify-between px-6 flex-shrink-0 border-b" style="height: var(--topbar-height); background-color: var(--bg-secondary); border-color: var(--border-primary);">
-			<div class="flex items-center gap-4">
+	<div class="flex-1 flex flex-col overflow-hidden min-w-0">
+		<header class="flex items-center justify-between px-4 sm:px-6 flex-shrink-0 border-b" style="height: var(--topbar-height); background-color: var(--bg-secondary); border-color: var(--border-primary);">
+			<div class="flex items-center gap-3">
+				<button onclick={toggleSidebar} class="lg:hidden p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" style="color: var(--text-secondary);">
+					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+				</button>
 				<button onclick={() => commandOpen = true} class="btn btn-ghost btn-sm flex items-center gap-2" style="color: var(--text-tertiary)">
 					<span class="text-xs">⌘K</span>
 					<span class="text-xs hidden sm:inline">Search...</span>
@@ -56,7 +90,7 @@
 			</div>
 		</header>
 
-		<main class="flex-1 overflow-y-auto p-6">
+		<main class="flex-1 overflow-y-auto p-4 sm:p-6">
 			{@render children()}
 		</main>
 	</div>
