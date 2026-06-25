@@ -1,11 +1,23 @@
 import { browser } from '$app/environment';
-import type { AuthResponse, PaginatedResponse, App, APIKey, Domain, User, Backup, PlatformSettings } from '$lib/types';
+import type { AuthResponse, PaginatedResponse, App, APIKey, Domain, User, PlatformSettings } from '$lib/types';
 
 function getBaseUrl(): string {
 	if (browser) {
 		return window.location.origin;
 	}
 	return '';
+}
+
+interface SuccessEnvelope {
+	message: string;
+	data: unknown;
+}
+
+interface PaginatedEnvelope {
+	data: unknown;
+	total: number;
+	limit: number;
+	offset: number;
 }
 
 class ApiClient {
@@ -33,6 +45,13 @@ class ApiClient {
 
 	get isAuthenticated(): boolean {
 		return !!this.token;
+	}
+
+	private unwrap<T>(json: unknown): T {
+		if (json && typeof json === 'object' && 'message' in json && 'data' in json) {
+			return (json as SuccessEnvelope).data as T;
+		}
+		return json as T;
 	}
 
 	private async request<T>(
@@ -65,7 +84,8 @@ class ApiClient {
 			throw new Error(error.message || `HTTP ${response.status}`);
 		}
 
-		return response.json();
+		const json = await response.json();
+		return this.unwrap<T>(json);
 	}
 
 	async get<T>(path: string): Promise<T> {
@@ -154,14 +174,6 @@ class ApiClient {
 
 	async activateUser(id: string): Promise<void> {
 		return this.post(`/api/v1/platform/users/${id}/activate`);
-	}
-
-	async listBackups(): Promise<Backup[]> {
-		return this.get<Backup[]>('/api/v1/platform/backups');
-	}
-
-	async createBackup(): Promise<void> {
-		return this.post('/api/v1/platform/backups');
 	}
 
 	async getSettings(): Promise<PlatformSettings> {

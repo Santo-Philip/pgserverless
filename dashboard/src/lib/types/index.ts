@@ -74,14 +74,6 @@ export interface Domain {
 	updated_at: string;
 }
 
-export interface Backup {
-	id: string;
-	app_id: string;
-	status: 'running' | 'completed' | 'failed';
-	file_size?: number;
-	created_at: string;
-}
-
 export interface PlatformSettings {
 	region: string;
 	default_visibility: string;
