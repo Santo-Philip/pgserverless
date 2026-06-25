@@ -14,7 +14,7 @@
 	onMount(async () => {
 		try {
 			const result = await api.listApps();
-			for (const app of result.data) {
+			for (const app of result) {
 				try {
 					const appKeys = await api.listAPIKeys(app.id);
 					if (appKeys.length > 0) keys.push({ app_name: app.name, keys: appKeys });

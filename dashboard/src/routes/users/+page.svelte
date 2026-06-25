@@ -21,8 +21,7 @@
 			const me = await api.get<{ user_id: string; is_super_admin: boolean }>('/api/v1/platform/me');
 			currentUserId = me.user_id;
 			isAdmin = me.is_super_admin;
-			const result = await api.listUsers();
-			users = result.data;
+			users = await api.listUsers();
 		} catch {}
 		loading = false;
 	});

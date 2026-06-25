@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import type { AuthResponse, PaginatedResponse, App, APIKey, Domain, User, PlatformSettings } from '$lib/types';
+import type { AuthResponse, App, APIKey, Domain, User, PlatformSettings } from '$lib/types';
 
 function getBaseUrl(): string {
 	if (browser) {
@@ -11,13 +11,6 @@ function getBaseUrl(): string {
 interface SuccessEnvelope {
 	message: string;
 	data: unknown;
-}
-
-interface PaginatedEnvelope {
-	data: unknown;
-	total: number;
-	limit: number;
-	offset: number;
 }
 
 class ApiClient {
@@ -116,24 +109,33 @@ class ApiClient {
 		return result;
 	}
 
-	async listApps(): Promise<PaginatedResponse<App>> {
-		return this.get<PaginatedResponse<App>>('/api/v1/platform/apps');
+	async listApps(): Promise<App[]> {
+		type PaginatedApps = { data: App[]; total: number; limit: number; offset: number };
+		const result = await this.get<PaginatedApps>('/api/v1/platform/apps');
+		return Array.isArray(result) ? result : (result?.data ?? []);
 	}
 
 	async getApp(id: string): Promise<App> {
 		return this.get<App>(`/api/v1/platform/apps/${id}`);
 	}
 
-	async createApp(name: string, slug: string, description?: string): Promise<{ app: App; admin_key: APIKey }> {
+	async createApp(name: string, slug: string, description?: string): Promise<{
+		app: App;
+		admin_key: APIKey;
+		service_key: APIKey;
+		jwt_secret: string;
+		connection_uri: string;
+	}> {
 		return this.post('/api/v1/platform/apps', { name, slug, description });
 	}
 
 	async deleteApp(id: string): Promise<void> {
-		return this.del(`/api/v1/platform/apps/${id}`);
+		await this.del(`/api/v1/platform/apps/${id}`);
 	}
 
 	async listAPIKeys(appId: string): Promise<APIKey[]> {
-		return this.get<APIKey[]>(`/api/v1/platform/apps/${appId}/apikey`);
+		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/apikey`);
+		return Array.isArray(result) ? result : [];
 	}
 
 	async createAPIKey(appId: string, name: string, keyType: string): Promise<APIKey> {
@@ -141,11 +143,12 @@ class ApiClient {
 	}
 
 	async deactivateAPIKey(appId: string, keyId: string): Promise<void> {
-		return this.del(`/api/v1/platform/apps/${appId}/apikey/${keyId}`);
+		await this.del(`/api/v1/platform/apps/${appId}/apikey/${keyId}`);
 	}
 
 	async listDomains(appId: string): Promise<Domain[]> {
-		return this.get<Domain[]>(`/api/v1/platform/apps/${appId}/domains`);
+		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/domains`);
+		return Array.isArray(result) ? result : [];
 	}
 
 	async createDomain(appId: string, domain: string): Promise<Domain> {
@@ -153,15 +156,17 @@ class ApiClient {
 	}
 
 	async deleteDomain(appId: string, domainId: string): Promise<void> {
-		return this.del(`/api/v1/platform/apps/${appId}/domains/${domainId}`);
+		await this.del(`/api/v1/platform/apps/${appId}/domains/${domainId}`);
 	}
 
 	async verifyDomain(appId: string, domainId: string): Promise<void> {
-		return this.post(`/api/v1/platform/apps/${appId}/domains/${domainId}/verify`);
+		await this.post(`/api/v1/platform/apps/${appId}/domains/${domainId}/verify`);
 	}
 
-	async listUsers(): Promise<PaginatedResponse<User>> {
-		return this.get<PaginatedResponse<User>>('/api/v1/platform/users');
+	async listUsers(): Promise<User[]> {
+		type PaginatedUsers = { data: User[]; total: number; limit: number; offset: number };
+		const result = await this.get<PaginatedUsers>('/api/v1/platform/users');
+		return Array.isArray(result) ? result : (result?.data ?? []);
 	}
 
 	async getUser(id: string): Promise<User> {
@@ -169,11 +174,11 @@ class ApiClient {
 	}
 
 	async suspendUser(id: string): Promise<void> {
-		return this.post(`/api/v1/platform/users/${id}/suspend`);
+		await this.post(`/api/v1/platform/users/${id}/suspend`);
 	}
 
 	async activateUser(id: string): Promise<void> {
-		return this.post(`/api/v1/platform/users/${id}/activate`);
+		await this.post(`/api/v1/platform/users/${id}/activate`);
 	}
 
 	async getSettings(): Promise<PlatformSettings> {
@@ -181,15 +186,31 @@ class ApiClient {
 	}
 
 	async updateSettings(settings: Partial<PlatformSettings>): Promise<void> {
-		return this.patch('/api/v1/platform/settings', settings);
+		await this.patch('/api/v1/platform/settings', settings);
 	}
 
 	async listExtensions(appId: string): Promise<{name: string; version: string; description: string; installed: boolean}[]> {
-		return this.get(`/api/v1/platform/apps/${appId}/extensions`);
+		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/extensions`);
+		return Array.isArray(result) ? result : [];
 	}
 
 	async toggleExtension(appId: string, name: string, install: boolean): Promise<void> {
 		await this.post(`/api/v1/platform/apps/${appId}/extensions/toggle`, { name, install });
+	}
+
+	async listTables(appId: string): Promise<{name: string; columns: {name: string; type: string}[]}[]> {
+		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables`);
+		if (Array.isArray(result)) return result;
+		if (result && typeof result === 'object' && 'tables' in result) {
+			const tables = (result as {tables: unknown[]}).tables;
+			return Array.isArray(tables) ? tables.map((t: unknown) => typeof t === 'string' ? { name: t, columns: [] } : t as {name: string; columns: {name: string; type: string}[]}) : [];
+		}
+		return [];
+	}
+
+	async getTableData(appId: string, tableName: string): Promise<Record<string, unknown>[]> {
+		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables/${tableName}`);
+		return Array.isArray(result) ? result : [];
 	}
 }
 

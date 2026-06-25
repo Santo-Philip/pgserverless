@@ -15,7 +15,7 @@
 	onMount(async () => {
 		try {
 			const result = await api.listApps();
-			for (const app of result.data) {
+			for (const app of result) {
 				try {
 					const t = await api.get<{ tables: string[] }>(`/api/v1/platform/apps/${app.id}/tables`);
 					apps.push({ id: app.id, name: app.name, tables: t.tables || [] });

@@ -43,6 +43,7 @@ func main() {
 	keyHandler := handler.NewAPIKeyHandler(keyService)
 	domainHandler := handler.NewDomainHandler(domainService)
 	extensionHandler := handler.NewExtensionHandler(extensionService)
+	tableHandler := handler.NewTableHandler(db, appRepo)
 
 	authMW := middleware.NewAuthMiddleware(cfg.JWT)
 
@@ -86,6 +87,9 @@ func main() {
 
 	api.Get("/apps/:id/extensions", authMW.RequireAuth(), authMW.RequireAdmin(), extensionHandler.List)
 	api.Post("/apps/:id/extensions/toggle", authMW.RequireAuth(), authMW.RequireAdmin(), extensionHandler.Toggle)
+
+	api.Get("/apps/:id/tables", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.ListTables)
+	api.Get("/apps/:id/tables/:table", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.GetTableData)
 
 	api.Get("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.GetSettings)
 	api.Patch("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.UpdateSettings)

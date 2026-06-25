@@ -6,16 +6,16 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 
-	let tables = $state<{ name: string; columns?: { name: string; type: string }[] }[]>([]);
+	let tables = $state<{name: string; columns: {name: string; type: string}[]}[]>([]);
 	let loading = $state(true);
 	let selectedTable = $state<string | null>(null);
 	let tableData = $state<Record<string, unknown>[]>([]);
 	let loadingData = $state(false);
+	let columns = $state<string[]>([]);
 
 	onMount(async () => {
 		try {
-			const result = await api.get<{ tables: string[] }>(`/api/v1/platform/apps/${$page.params.id}/tables`);
-			tables = (result.tables || []).map(n => ({ name: n }));
+			tables = await api.listTables($page.params.id!);
 		} catch {}
 		loading = false;
 	});
@@ -24,8 +24,13 @@
 		selectedTable = name;
 		loadingData = true;
 		try {
-			tableData = await api.get<Record<string, unknown>[]>(`/api/v1/platform/apps/${$page.params.id}/tables/${name}`);
-		} catch { tableData = []; }
+			const data = await api.getTableData($page.params.id!, name);
+			tableData = data;
+			columns = data.length > 0 ? Object.keys(data[0]) : [];
+		} catch {
+			tableData = [];
+			columns = [];
+		}
 		loadingData = false;
 	}
 </script>
@@ -76,7 +81,7 @@
 						<table class="w-full">
 							<thead>
 								<tr>
-									{#each Object.keys(tableData[0]) as col}
+									{#each columns as col}
 										<th>{col}</th>
 									{/each}
 								</tr>
@@ -84,7 +89,7 @@
 							<tbody>
 								{#each tableData as row}
 									<tr>
-										{#each Object.keys(tableData[0]) as col}
+										{#each columns as col}
 											<td class="font-mono text-xs max-w-[200px] truncate">{JSON.stringify(row[col]) ?? 'NULL'}</td>
 										{/each}
 									</tr>

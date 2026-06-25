@@ -31,8 +31,7 @@
 
 	onMount(async () => {
 		try {
-			const result = await api.listApps();
-			apps = result.data;
+			apps = await api.listApps();
 			if (apps.length > 0) selectedSlug = apps[0].slug;
 		} catch {}
 		loading = false;

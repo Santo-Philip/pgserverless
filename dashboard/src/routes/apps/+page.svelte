@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api/client';
-	import { goto } from '$app/navigation';
 	import Card from '$lib/components/Card.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-	import type { App } from '$lib/types';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import type { App, APIKey } from '$lib/types';
 
 	let apps = $state<App[]>([]);
 	let loading = $state(true);
@@ -22,10 +22,17 @@
 	let createError = $state('');
 	let createLoading = $state(false);
 
+	let createdResult = $state<{
+		app: App;
+		admin_key: APIKey;
+		service_key: APIKey;
+		jwt_secret: string;
+		connection_uri: string;
+	} | null>(null);
+
 	onMount(async () => {
 		try {
-			const result = await api.listApps();
-			apps = result.data;
+			apps = await api.listApps();
 		} catch {}
 		loading = false;
 	});
@@ -36,6 +43,7 @@
 		try {
 			const result = await api.createApp(newName, newSlug, newDesc || undefined);
 			apps = [result.app, ...apps];
+			createdResult = result;
 			showCreate = false;
 			newName = '';
 			newSlug = '';
@@ -45,6 +53,10 @@
 		} finally {
 			createLoading = false;
 		}
+	}
+
+	function dismissCreated() {
+		createdResult = null;
 	}
 
 	async function handleDelete() {
@@ -69,6 +81,51 @@
 			+ Create Application
 		</button>
 	</div>
+
+	{#if createdResult}
+		<div class="mb-6 p-5 rounded-xl border" style="background-color: rgba(34,197,94,0.05); border-color: rgba(34,197,94,0.2);">
+			<div class="flex items-start justify-between mb-4">
+				<div>
+					<h3 class="text-lg font-semibold" style="color: var(--success)">Application Created</h3>
+					<p class="text-sm mt-1" style="color: var(--text-secondary)">Database schema and API keys have been generated.</p>
+				</div>
+				<button onclick={dismissCreated} class="btn btn-ghost btn-sm">Dismiss</button>
+			</div>
+
+			<div class="space-y-4">
+				<div class="p-3 rounded-lg" style="background-color: var(--bg-tertiary);">
+					<p class="text-xs font-medium mb-1" style="color: var(--text-tertiary)">Database Schema</p>
+					<p class="text-sm font-mono">{createdResult.app.schema_name}</p>
+				</div>
+
+				<div class="p-3 rounded-lg" style="background-color: var(--bg-tertiary);">
+					<p class="text-xs font-medium mb-1" style="color: var(--text-tertiary)">API Endpoint</p>
+					<div class="flex items-center justify-between">
+						<p class="text-sm font-mono">/api/v1/{createdResult.app.slug}</p>
+						<CopyButton text={`/api/v1/${createdResult.app.slug}`} />
+					</div>
+				</div>
+
+				<div class="p-3 rounded-lg" style="background-color: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);">
+					<p class="text-xs font-medium mb-2" style="color: var(--warning)">Admin API Key — store securely, shown only once</p>
+					<div class="flex items-center gap-2">
+						<code class="flex-1 p-2 rounded text-xs font-mono break-all" style="background-color: var(--bg-primary); color: var(--text-primary)">{createdResult.admin_key.raw_key}</code>
+						<CopyButton text={createdResult.admin_key.raw_key ?? ''} />
+					</div>
+					<p class="text-xs mt-1.5" style="color: var(--text-tertiary)">Key prefix: {createdResult.admin_key.key_prefix}</p>
+				</div>
+
+				<div class="p-3 rounded-lg" style="background-color: var(--bg-tertiary);">
+					<p class="text-xs font-medium mb-2" style="color: var(--text-tertiary)">Service API Key</p>
+					<div class="flex items-center gap-2">
+						<code class="flex-1 p-2 rounded text-xs font-mono break-all" style="background-color: var(--bg-primary); color: var(--text-primary)">{createdResult.service_key.raw_key}</code>
+						<CopyButton text={createdResult.service_key.raw_key ?? ''} />
+					</div>
+					<p class="text-xs mt-1.5" style="color: var(--text-tertiary)">Key prefix: {createdResult.service_key.key_prefix}</p>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<Modal title="Create Application" open={showCreate} onclose={() => showCreate = false}>
 		<form onsubmit={handleCreate} class="space-y-4">

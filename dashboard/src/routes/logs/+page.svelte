@@ -17,7 +17,7 @@
 		try {
 			const result = await api.listApps();
 			let all: AuditLog[] = [];
-			for (const app of result.data) {
+			for (const app of result) {
 				try {
 					const appLogs = await api.get<AuditLog[]>(`/api/v1/platform/apps/${app.id}/logs`);
 					all = [...all, ...appLogs];

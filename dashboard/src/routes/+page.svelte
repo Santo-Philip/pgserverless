@@ -23,8 +23,8 @@
 	onMount(async () => {
 		try {
 			const apps = await api.listApps();
-			stats.apps = apps.total;
-			recentApps = apps.data.slice(0, 5);
+			stats.apps = apps.length;
+			recentApps = apps.slice(0, 5);
 		} catch {}
 		loading = false;
 	});
