@@ -85,13 +85,13 @@ func (s *AppService) CreateApp(ctx context.Context, req CreateAppRequest, userID
 		return nil, fmt.Errorf("invalid role name: %w", err)
 	}
 
-	var orgID uuid.UUID
+	var orgID *uuid.UUID
 	if req.OrgID != "" {
-		var err error
-		orgID, err = uuid.Parse(req.OrgID)
+		parsed, err := uuid.Parse(req.OrgID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid org_id: %w", err)
 		}
+		orgID = &parsed
 	}
 
 	ownerID := userID

@@ -24,7 +24,7 @@ const (
 
 type App struct {
 	ID           uuid.UUID  `json:"id"`
-	OrgID        uuid.UUID  `json:"org_id"`
+	OrgID        *uuid.UUID `json:"org_id,omitempty"`
 	OwnerID      *uuid.UUID `json:"owner_id,omitempty"`
 	Name         string     `json:"name"`
 	Slug         string     `json:"slug"`
