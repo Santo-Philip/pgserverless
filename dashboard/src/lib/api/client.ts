@@ -198,12 +198,12 @@ class ApiClient {
 		await this.post(`/api/v1/platform/apps/${appId}/extensions/toggle`, { name, install });
 	}
 
-	async listTables(appId: string): Promise<{name: string; columns: {name: string; type: string}[]}[]> {
+	async listTables(appId: string): Promise<{name: string; columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value: string}[]}[]> {
 		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables`);
 		if (Array.isArray(result)) return result;
 		if (result && typeof result === 'object' && 'tables' in result) {
 			const tables = (result as {tables: unknown[]}).tables;
-			return Array.isArray(tables) ? tables.map((t: unknown) => typeof t === 'string' ? { name: t, columns: [] } : t as {name: string; columns: {name: string; type: string}[]}) : [];
+			return Array.isArray(tables) ? tables.map((t: unknown) => typeof t === 'string' ? { name: t, columns: [] } : t as {name: string; columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value: string}[]}) : [];
 		}
 		return [];
 	}
@@ -211,6 +211,26 @@ class ApiClient {
 	async getTableData(appId: string, tableName: string): Promise<Record<string, unknown>[]> {
 		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables/${tableName}`);
 		return Array.isArray(result) ? result : [];
+	}
+
+	async createTable(appId: string, name: string, columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value?: string}[]): Promise<void> {
+		await this.post(`/api/v1/platform/apps/${appId}/tables`, { name, columns });
+	}
+
+	async addColumn(appId: string, tableName: string, column: {name: string; type: string; nullable: boolean; default_value?: string}): Promise<void> {
+		await this.post(`/api/v1/platform/apps/${appId}/tables/${tableName}/columns`, column);
+	}
+
+	async insertRow(appId: string, tableName: string, values: Record<string, unknown>): Promise<void> {
+		await this.post(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`, { values });
+	}
+
+	async updateRow(appId: string, tableName: string, values: Record<string, unknown>, where: Record<string, unknown>): Promise<void> {
+		await this.patch(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`, { values, where });
+	}
+
+	async deleteRow(appId: string, tableName: string, where: Record<string, unknown>): Promise<void> {
+		await this.del(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`);
 	}
 }
 

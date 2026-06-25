@@ -89,7 +89,12 @@ func main() {
 	api.Post("/apps/:id/extensions/toggle", authMW.RequireAuth(), authMW.RequireAdmin(), extensionHandler.Toggle)
 
 	api.Get("/apps/:id/tables", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.ListTables)
+	api.Post("/apps/:id/tables", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.CreateTable)
 	api.Get("/apps/:id/tables/:table", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.GetTableData)
+	api.Post("/apps/:id/tables/:table/rows", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.InsertRow)
+	api.Patch("/apps/:id/tables/:table/rows", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.UpdateRow)
+	api.Delete("/apps/:id/tables/:table/rows", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.DeleteRow)
+	api.Post("/apps/:id/tables/:table/columns", authMW.RequireAuth(), authMW.RequireAdmin(), tableHandler.AddColumn)
 
 	api.Get("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.GetSettings)
 	api.Patch("/settings", authMW.RequireAuth(), authMW.RequireAdmin(), appHandler.UpdateSettings)
