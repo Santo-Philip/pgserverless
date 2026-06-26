@@ -1,4 +1,4 @@
-.PHONY: all build run dev clean test lint
+.PHONY: all build run dev clean test lint migrate
 
 GO := go
 GOFLAGS := -ldflags="-s -w"
@@ -9,7 +9,8 @@ build:
 	$(GO) build -o bin/gateway $(GOFLAGS) ./gateway
 	$(GO) build -o bin/management-api $(GOFLAGS) ./management-api
 	$(GO) build -o bin/worker $(GOFLAGS) ./worker
-	@echo "Built: gateway, management-api, worker"
+	$(GO) build -o bin/migrate $(GOFLAGS) ./cmd/migrate
+	@echo "Built: gateway, management-api, worker, migrate"
 
 run-gateway:
 	$(GO) run ./gateway
@@ -20,6 +21,9 @@ run-management-api:
 run-worker:
 	$(GO) run ./worker
 
+migrate:
+	$(GO) run ./cmd/migrate
+
 run-all:
 	@echo "Starting all services in background..."
 	$(GO) run ./gateway &
@@ -29,20 +33,21 @@ run-all:
 
 dev:
 	@echo "Starting development environment..."
-	@echo "1. Start PostgreSQL, Redis, PostgREST via Docker Compose"
-	@echo "2. Run services individually: make run-gateway, make run-management-api, make run-worker"
-	@echo ""
 	$(GO) run ./gateway &
 
 lint:
 	$(GO) vet ./...
-	$(GO) fmt ./...
 
 test:
-	$(GO) test ./... -v -count=1
+	$(GO) test ./... -v -count=1 -timeout 60s
+
+test-cover:
+	$(GO) test ./... -coverprofile=coverage.out -count=1 -timeout 60s
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ coverage.out coverage.html
 	$(GO) clean -cache
 
 docker-up:
@@ -61,14 +66,17 @@ dashboard-dev:
 dashboard-build:
 	cd dashboard && npm run build
 
-.PHONY: db-init
-db-init:
-	@echo "Initializing database..."
+.PHONY: db-migrate
+db-migrate:
+	@echo "Running database migrations..."
 	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/001-schema.sql
 	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/002-functions.sql
 	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/003-roles.sql
 	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/004-platform.sql
-	@echo "Database initialized."
+	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/005-domains.sql
+	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/006-super-admin.sql
+	PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -f postgres/init/007-platform-settings.sql
+	@echo "Database migrations complete."
 
 help:
 	@echo "Targets:"
@@ -76,14 +84,16 @@ help:
 	@echo "  run-gateway       - Run gateway service"
 	@echo "  run-management-api - Run management API"
 	@echo "  run-worker        - Run worker"
+	@echo "  migrate           - Run database migrations (Go tool)"
 	@echo "  run-all           - Run all services"
 	@echo "  dev               - Start dev environment"
-	@echo "  lint              - Run linters"
+	@echo "  lint              - Run linters (go vet)"
 	@echo "  test              - Run tests"
+	@echo "  test-cover        - Run tests with coverage"
 	@echo "  clean             - Clean build artifacts"
 	@echo "  docker-up         - Start Docker Compose"
 	@echo "  docker-down       - Stop Docker Compose"
 	@echo "  docker-build      - Build Docker images"
 	@echo "  dashboard-dev     - Start dashboard dev server"
 	@echo "  dashboard-build   - Build dashboard"
-	@echo "  db-init           - Initialize database schema"
+	@echo "  db-migrate        - Initialize database schema (psql)"

@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Card from '$lib/components/Card.svelte';
 
 	let tables = $state<string[]>([]);
 	let loading = $state(true);
@@ -30,71 +32,62 @@
 	}
 </script>
 
-<div class="max-w-6xl mx-auto">
-	<a href="/apps/{$page.params.id}" class="text-nexbic-600 hover:underline mb-4 inline-block">&larr; Back to App</a>
-	<h1 class="text-3xl font-bold mb-8">Database Explorer</h1>
-
-	{#if loading}
-		<p class="text-gray-500">Loading...</p>
-	{:else}
-		<div class="flex gap-6">
-			<div class="w-64 flex-shrink-0">
-				<div class="bg-white rounded-lg shadow p-4">
-					<h2 class="font-semibold mb-3">Tables</h2>
-					{#if tables.length === 0}
-						<p class="text-sm text-gray-500">No tables yet.</p>
-					{:else}
-						<ul class="space-y-1">
-							{#each tables as table}
-								<li>
-									<button
-										onclick={() => selectTable(table)}
-										class="w-full text-left px-3 py-2 rounded text-sm hover:bg-gray-100 {selectedTable === table ? 'bg-nexbic-50 text-nexbic-700 font-medium' : ''}"
-									>
-										{table}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{/if}
+<div class="flex gap-6">
+	<div class="w-56 flex-shrink-0">
+		<Card title="Tables">
+			{#if loading}
+				<div class="space-y-2"><div class="skeleton h-8 w-full"></div><div class="skeleton h-8 w-full"></div></div>
+			{:else if tables.length === 0}
+				<p class="text-xs" style="color: var(--text-tertiary)">No tables yet</p>
+			{:else}
+				<div class="space-y-0.5">
+					{#each tables as table}
+						<button
+							onclick={() => selectTable(table)}
+							class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"
+							class:active={selectedTable === table}
+							style={selectedTable === table ? 'background-color: var(--accent-muted); color: var(--accent)' : 'color: var(--text-secondary)'}
+						>
+							{table}
+						</button>
+					{/each}
 				</div>
-			</div>
+			{/if}
+		</Card>
+	</div>
 
-			<div class="flex-1">
-				{#if selectedTable}
-					<div class="bg-white rounded-lg shadow overflow-hidden">
-						<h2 class="text-lg font-semibold p-4 border-b">{selectedTable}</h2>
-						{#if tableData.length === 0}
-							<p class="p-4 text-gray-500">No data in this table.</p>
-						{:else}
-							<div class="overflow-x-auto">
-								<table class="w-full">
-									<thead class="bg-gray-50">
+	<div class="flex-1 min-w-0">
+		{#if !selectedTable}
+			<EmptyState icon="▤" title="Select a table" description="Choose a table from the sidebar." />
+		{:else}
+			<Card title={selectedTable}>
+				{#if tableData.length === 0}
+					<p class="text-sm" style="color: var(--text-secondary)">No data in this table.</p>
+				{:else}
+					<div class="overflow-x-auto -mx-5 -mb-5">
+						<div class="table-wrap">
+							<table class="w-full">
+								<thead>
+									<tr>
+										{#each Object.keys(tableData[0]) as col}
+											<th>{col}</th>
+										{/each}
+									</tr>
+								</thead>
+								<tbody>
+									{#each tableData as row}
 										<tr>
 											{#each Object.keys(tableData[0]) as col}
-												<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{col}</th>
+												<td class="font-mono text-xs max-w-[200px] truncate">{row[col] !== null && row[col] !== undefined ? JSON.stringify(row[col]) : 'NULL'}</td>
 											{/each}
 										</tr>
-									</thead>
-									<tbody class="divide-y divide-gray-200">
-										{#each tableData as row}
-											<tr>
-												{#each Object.keys(tableData[0]) as col}
-													<td class="px-4 py-2 text-sm">{JSON.stringify(row[col])}</td>
-												{/each}
-											</tr>
-										{/each}
-									</tbody>
-								</table>
-							</div>
-						{/if}
-					</div>
-				{:else}
-					<div class="bg-white rounded-lg shadow p-12 text-center">
-						<p class="text-gray-500">Select a table to browse its contents.</p>
+									{/each}
+								</tbody>
+							</table>
+						</div>
 					</div>
 				{/if}
-			</div>
-		</div>
-	{/if}
+			</Card>
+		{/if}
+	</div>
 </div>

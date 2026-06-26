@@ -62,6 +62,29 @@ func (h *AppHandler) List(c *fiber.Ctx) error {
 	return utils.Paginated(c, apps, total, p.Limit, p.Offset)
 }
 
+func (h *AppHandler) Update(c *fiber.Ctx) error {
+	id, err := utils.ParseUUIDParam(c, "id", "app")
+	if err != nil {
+		return utils.BadRequest(c, "invalid app id")
+	}
+
+	var updates map[string]interface{}
+	if err := c.BodyParser(&updates); err != nil {
+		return utils.BadRequest(c, "invalid request body")
+	}
+
+	if err := h.appService.UpdateApp(c.Context(), id, updates); err != nil {
+		return utils.BadRequest(c, err.Error())
+	}
+
+	app, err := h.appService.GetApp(c.Context(), id)
+	if err != nil {
+		return utils.InternalError(c, "failed to load updated app")
+	}
+
+	return utils.OK(c, app)
+}
+
 func (h *AppHandler) Delete(c *fiber.Ctx) error {
 	id, err := utils.ParseUUIDParam(c, "id", "app")
 	if err != nil {

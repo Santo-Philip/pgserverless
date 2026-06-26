@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,17 +11,30 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/nexbic/platform/shared/config"
 	"github.com/nexbic/platform/shared/database"
+	"github.com/nexbic/platform/shared/middleware"
 	"github.com/nexbic/platform/worker/tasks"
 )
 
 func main() {
 	cfg := config.Load()
 
-	db, err := database.New(context.Background(), cfg.Database)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
+
+	tp, err := middleware.InitTracing(ctx, cfg.AppName+"-worker", cfg.Tracing.OTLPEndpoint)
+	if err != nil {
+		slog.Warn("failed to initialize tracing", "error", err)
+	}
+	if tp != nil {
+		defer func() { _ = tp.Shutdown(ctx) }()
+	}
 
 	asynqServer := asynq.NewServer(
 		asynq.RedisClientOpt{
@@ -35,6 +49,7 @@ func main() {
 				"default":  3,
 				"low":      1,
 			},
+			Logger: asynqLogger{},
 		},
 	)
 
@@ -47,13 +62,39 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("Worker starting with concurrency %d", cfg.Asynq.Concurrency)
+		slog.Info("worker starting", "concurrency", cfg.Asynq.Concurrency)
 		if err := asynqServer.Run(mux); err != nil {
-			log.Fatalf("worker error: %v", err)
+			slog.Error("worker error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	<-quit
-	log.Println("shutting down worker...")
+	sig := <-quit
+	slog.Info("shutting down worker", "signal", sig)
+
 	asynqServer.Shutdown()
+	slog.Info("worker stopped")
+}
+
+type asynqLogger struct{}
+
+func (l asynqLogger) Debug(args ...interface{}) {
+	slog.Debug("asynq", "args", fmt.Sprint(args...))
+}
+
+func (l asynqLogger) Info(args ...interface{}) {
+	slog.Info("asynq", "args", fmt.Sprint(args...))
+}
+
+func (l asynqLogger) Warn(args ...interface{}) {
+	slog.Warn("asynq", "args", fmt.Sprint(args...))
+}
+
+func (l asynqLogger) Error(args ...interface{}) {
+	slog.Error("asynq", "args", fmt.Sprint(args...))
+}
+
+func (l asynqLogger) Fatal(args ...interface{}) {
+	slog.Error("asynq fatal", "args", fmt.Sprint(args...))
+	os.Exit(1)
 }

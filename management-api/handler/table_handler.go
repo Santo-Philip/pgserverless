@@ -525,6 +525,85 @@ func (h *TableHandler) listColumns(ctx context.Context, schema, table string) ([
 	return cols, nil
 }
 
+type RunSQLRequest struct {
+	Query string `json:"query"`
+}
+
+func (h *TableHandler) RunSQL(c *fiber.Ctx) error {
+	appID, err := utils.ParseUUIDParam(c, "id", "app")
+	if err != nil {
+		return utils.BadRequest(c, "invalid app id")
+	}
+
+	app, err := h.appRepo.GetByID(c.Context(), appID)
+	if err != nil || app == nil {
+		return utils.NotFound(c, "app not found")
+	}
+
+	var req RunSQLRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.BadRequest(c, "invalid request body")
+	}
+
+	if strings.TrimSpace(req.Query) == "" {
+		return utils.BadRequest(c, "query cannot be empty")
+	}
+
+	// Ensure query is scoped to the app's schema
+	schemaName := app.SchemaName
+	if err := validateTblIdent(schemaName); err != nil {
+		return utils.BadRequest(c, "invalid schema name")
+	}
+
+	// Set search path to the app schema so unqualified tables resolve correctly
+	setPath := fmt.Sprintf("SET search_path TO %s", quoteIdent(schemaName))
+	if _, err := h.db.Pool.Exec(c.Context(), setPath); err != nil {
+		return utils.InternalError(c, "failed to set schema context")
+	}
+
+	rows, err := h.db.Pool.Query(c.Context(), req.Query)
+	if err != nil {
+		return utils.BadRequest(c, fmt.Sprintf("query error: %s", err.Error()))
+	}
+	defer rows.Close()
+
+	fieldDescriptions := rows.FieldDescriptions()
+	columns := make([]string, len(fieldDescriptions))
+	for i, fd := range fieldDescriptions {
+		columns[i] = fd.Name
+	}
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			continue
+		}
+
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			val := values[i]
+			if b, ok := val.([]byte); ok {
+				row[col] = string(b)
+			} else {
+				row[col] = val
+			}
+		}
+		results = append(results, row)
+	}
+
+	if results == nil {
+		results = []map[string]interface{}{}
+	}
+
+	return utils.OK(c, results)
+}
+
 var validTblIdentReplacer = strings.NewReplacer(`"`, ``)
 
 func validateTblIdent(name string) error {

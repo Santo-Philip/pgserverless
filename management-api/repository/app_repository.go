@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -95,6 +96,34 @@ func (r *AppRepository) List(ctx context.Context, orgID *uuid.UUID, limit, offse
 	}
 
 	return apps, total, nil
+}
+
+func (r *AppRepository) Update(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error {
+	fields := []string{}
+	args := []interface{}{}
+	i := 1
+
+	if v, ok := updates["name"]; ok {
+		fields = append(fields, fmt.Sprintf("name = $%d", i))
+		args = append(args, v)
+		i++
+	}
+	if v, ok := updates["description"]; ok {
+		fields = append(fields, fmt.Sprintf("description = $%d", i))
+		args = append(args, v)
+		i++
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+
+	fields = append(fields, "updated_at = NOW()")
+	args = append(args, id)
+
+	_, err := r.db.Pool.Exec(ctx, fmt.Sprintf(`
+		UPDATE apps SET %s WHERE id = $%d AND deleted_at IS NULL
+	`, strings.Join(fields, ", "), i), args...)
+	return err
 }
 
 func (r *AppRepository) Delete(ctx context.Context, id uuid.UUID) error {

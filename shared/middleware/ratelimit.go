@@ -1,12 +1,15 @@
 package middleware
 
 import (
+	"context"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/nexbic/platform/shared/utils"
+	"github.com/redis/go-redis/v9"
 )
 
 type RateLimiter struct {
@@ -14,21 +17,27 @@ type RateLimiter struct {
 	requests map[string]*rateEntry
 	limit    int
 	window   time.Duration
+	rdb      *redis.Client
+	useRedis bool
 }
 
 type rateEntry struct {
-	count    int
+	count       int
 	windowStart time.Time
 }
 
-func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
+func NewRateLimiter(limit int, window time.Duration, rdb *redis.Client) *RateLimiter {
 	rl := &RateLimiter{
 		requests: make(map[string]*rateEntry),
 		limit:    limit,
 		window:   window,
+		rdb:      rdb,
+		useRedis: rdb != nil,
 	}
 
-	go rl.cleanup()
+	if !rl.useRedis {
+		go rl.cleanup()
+	}
 
 	return rl
 }
@@ -48,6 +57,40 @@ func (rl *RateLimiter) cleanup() {
 }
 
 func (rl *RateLimiter) Check(key string) (bool, int) {
+	if rl.useRedis {
+		return rl.checkRedis(key)
+	}
+	return rl.checkMemory(key)
+}
+
+func (rl *RateLimiter) checkRedis(key string) (bool, int) {
+	window := int64(rl.window.Seconds())
+	now := time.Now().Unix()
+	windowKey := "ratelimit:" + key
+
+	pipe := rl.rdb.Pipeline()
+	pipe.ZRemRangeByScore(context.Background(), windowKey, "0", strconv.FormatInt(now-window, 10))
+	countCmd := pipe.ZCard(context.Background(), windowKey)
+	pipe.ZAdd(context.Background(), windowKey, redis.Z{
+		Score:  float64(now),
+		Member: float64(now) + float64(now%1000)/1000,
+	})
+	pipe.Expire(context.Background(), windowKey, time.Duration(window)*time.Second)
+	_, err := pipe.Exec(context.Background())
+	if err != nil {
+		slog.Warn("redis rate limit error, falling back to in-memory", "error", err)
+		return rl.checkMemory(key)
+	}
+
+	count := int(countCmd.Val())
+	remaining := rl.limit - count
+	if remaining < 0 {
+		remaining = 0
+	}
+	return count <= rl.limit, remaining
+}
+
+func (rl *RateLimiter) checkMemory(key string) (bool, int) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -64,14 +107,15 @@ func (rl *RateLimiter) Check(key string) (bool, int) {
 
 	entry.count++
 	if entry.count > rl.limit {
+		RecordRateLimitExceeded()
 		return false, 0
 	}
 
 	return true, rl.limit - entry.count
 }
 
-func RateLimit(limit int, window time.Duration) fiber.Handler {
-	rl := NewRateLimiter(limit, window)
+func RateLimit(limit int, window time.Duration, rdb *redis.Client) fiber.Handler {
+	rl := NewRateLimiter(limit, window, rdb)
 
 	return func(c *fiber.Ctx) error {
 		key := c.IP()

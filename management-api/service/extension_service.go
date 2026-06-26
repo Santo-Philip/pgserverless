@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/nexbic/platform/shared/database"
 )
@@ -99,5 +100,5 @@ func validateExtensionName(name string) error {
 }
 
 func quoteIdent(s string) string {
-	return `"` + s + `"`
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }

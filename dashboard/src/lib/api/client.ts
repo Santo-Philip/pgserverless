@@ -13,12 +13,28 @@ interface SuccessEnvelope {
 	data: unknown;
 }
 
+class ApiError extends Error {
+	status: number;
+
+	constructor(message: string, status: number) {
+		super(message);
+		this.name = 'ApiError';
+		this.status = status;
+	}
+}
+
 class ApiClient {
 	private token: string | null = null;
+	private refreshToken: string | null = null;
+	private expiresAt: number | null = null;
+	private refreshPromise: Promise<void> | null = null;
 
 	constructor() {
 		if (browser) {
 			this.token = localStorage.getItem('nexbic_token');
+			this.refreshToken = localStorage.getItem('nexbic_refresh_token');
+			const exp = localStorage.getItem('nexbic_expires_at');
+			this.expiresAt = exp ? parseInt(exp, 10) : null;
 		}
 	}
 
@@ -29,15 +45,72 @@ class ApiClient {
 		}
 	}
 
+	setRefreshToken(token: string) {
+		this.refreshToken = token;
+		if (browser) {
+			localStorage.setItem('nexbic_refresh_token', token);
+		}
+	}
+
+	setExpiresAt(iso: string) {
+		this.expiresAt = new Date(iso).getTime();
+		if (browser) {
+			localStorage.setItem('nexbic_expires_at', String(this.expiresAt));
+		}
+	}
+
 	clearToken() {
 		this.token = null;
+		this.refreshToken = null;
+		this.expiresAt = null;
 		if (browser) {
 			localStorage.removeItem('nexbic_token');
+			localStorage.removeItem('nexbic_refresh_token');
+			localStorage.removeItem('nexbic_expires_at');
 		}
 	}
 
 	get isAuthenticated(): boolean {
 		return !!this.token;
+	}
+
+	private isTokenExpired(): boolean {
+		if (!this.expiresAt) return false;
+		return Date.now() >= this.expiresAt;
+	}
+
+	private async tryRefreshToken(): Promise<void> {
+		if (!this.refreshToken) throw new Error('No refresh token');
+
+		const response = await fetch(`${getBaseUrl()}/api/v1/platform/auth/refresh`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ refresh_token: this.refreshToken }),
+		});
+
+		if (!response.ok) {
+			this.clearToken();
+			throw new Error('Session expired');
+		}
+
+		const json = await response.json();
+		const result = json.data || json;
+		this.setToken(result.token);
+		this.setRefreshToken(result.refresh_token || this.refreshToken);
+		if (result.expires_at) {
+			this.setExpiresAt(result.expires_at);
+		}
+	}
+
+	private async ensureAuth(): Promise<void> {
+		if (!this.token) return;
+		if (!this.isTokenExpired()) return;
+		if (this.refreshPromise) return this.refreshPromise;
+
+		this.refreshPromise = this.tryRefreshToken().finally(() => {
+			this.refreshPromise = null;
+		});
+		return this.refreshPromise;
 	}
 
 	private unwrap<T>(json: unknown): T {
@@ -50,11 +123,14 @@ class ApiClient {
 	private async request<T>(
 		method: string,
 		path: string,
-		body?: unknown
+		body?: unknown,
+		retried = false,
 	): Promise<T> {
+		await this.ensureAuth();
+
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
-			Accept: 'application/json'
+			Accept: 'application/json',
 		};
 
 		if (this.token) {
@@ -64,17 +140,30 @@ class ApiClient {
 		const response = await fetch(`${getBaseUrl()}${path}`, {
 			method,
 			headers,
-			body: body ? JSON.stringify(body) : undefined
+			body: body ? JSON.stringify(body) : undefined,
 		});
+
+		if (response.status === 401 && !retried && this.refreshToken) {
+			try {
+				await this.tryRefreshToken();
+				return this.request<T>(method, path, body, true);
+			} catch {
+				this.clearToken();
+				throw new ApiError('Session expired. Please log in again.', 401);
+			}
+		}
 
 		if (response.status === 401) {
 			this.clearToken();
-			throw new Error('Unauthorized');
+			throw new ApiError('Unauthorized', 401);
 		}
 
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({ message: response.statusText }));
-			throw new Error(error.message || `HTTP ${response.status}`);
+			throw new ApiError(
+				error.message || `HTTP ${response.status}`,
+				response.status,
+			);
 		}
 
 		const json = await response.json();
@@ -100,12 +189,16 @@ class ApiClient {
 	async login(email: string, password: string) {
 		const result = await this.post<AuthResponse>('/api/v1/platform/auth/login', { email, password });
 		this.setToken(result.token);
+		if (result.refresh_token) this.setRefreshToken(result.refresh_token);
+		if (result.expires_at) this.setExpiresAt(result.expires_at);
 		return result;
 	}
 
 	async register(email: string, password: string, name?: string) {
 		const result = await this.post<AuthResponse>('/api/v1/platform/auth/register', { email, password, name });
 		this.setToken(result.token);
+		if (result.refresh_token) this.setRefreshToken(result.refresh_token);
+		if (result.expires_at) this.setExpiresAt(result.expires_at);
 		return result;
 	}
 
@@ -235,3 +328,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+export { ApiError };

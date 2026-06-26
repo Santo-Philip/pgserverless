@@ -8,9 +8,12 @@ import (
 func CORS(origins []string) fiber.Handler {
 	allowCredentials := true
 	allowOrigins := joinOrigins(origins)
-	if allowOrigins == "*" {
-		allowCredentials = false
+
+	if allowOrigins == "*" || allowOrigins == "" {
+		allowOrigins = "http://localhost:5173"
+		allowCredentials = true
 	}
+
 	return cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -23,7 +26,7 @@ func CORS(origins []string) fiber.Handler {
 
 func joinOrigins(origins []string) string {
 	if len(origins) == 0 {
-		return "*"
+		return ""
 	}
 	result := origins[0]
 	for _, o := range origins[1:] {

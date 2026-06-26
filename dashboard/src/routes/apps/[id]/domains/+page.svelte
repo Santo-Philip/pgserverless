@@ -3,11 +3,16 @@
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client';
 	import type { Domain } from '$lib/types';
+	import Badge from '$lib/components/Badge.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
 	let domains = $state<Domain[]>([]);
 	let loading = $state(true);
 	let newDomain = $state('');
 	let error = $state('');
+	let deleteTarget = $state<string | null>(null);
+	let deleting = $state(false);
 
 	onMount(async () => {
 		try {
@@ -41,95 +46,101 @@
 		}
 	}
 
-	async function handleDelete(domainId: string) {
-		if (!confirm('Delete this domain?')) return;
+	async function handleDelete() {
+		if (!deleteTarget) return;
+		deleting = true;
 		try {
-			await api.deleteDomain($page.params.id!, domainId);
-			domains = domains.filter((d) => d.id !== domainId);
+			await api.deleteDomain($page.params.id!, deleteTarget);
+			domains = domains.filter((d) => d.id !== deleteTarget);
 		} catch (e) {
 			console.error('Failed to delete domain', e);
 		}
+		deleting = false;
+		deleteTarget = null;
 	}
 </script>
 
-<div class="max-w-6xl mx-auto">
-	<a href="/apps/{$page.params.id}" class="text-nexbic-600 hover:underline mb-4 inline-block">&larr; Back to App</a>
-	<h1 class="text-3xl font-bold mb-8">Custom Domains</h1>
+<div class="max-w-4xl mx-auto">
+	<a href="/apps/{$page.params.id}" class="link text-sm mb-4 inline-block" style="color: var(--accent)">&larr; Back to App</a>
+	<h1 class="text-2xl font-bold mb-6">Custom Domains</h1>
 
-	<div class="bg-white rounded-lg shadow p-6 mb-6">
-		<h2 class="text-xl font-semibold mb-4">Add Domain</h2>
+	<div class="card p-5 mb-6">
+		<h2 class="text-sm font-semibold mb-4" style="color: var(--text-primary)">Add Domain</h2>
 		<form onsubmit={handleAdd} class="space-y-4">
 			{#if error}
-				<div class="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>
+				<div class="px-4 py-3 rounded-lg text-sm" style="background-color: rgba(239,68,68,0.1); color: var(--danger)">{error}</div>
 			{/if}
 
 			<div>
-				<label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
+				<label for="domain" class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary)">Domain</label>
 				<input
 					id="domain"
 					type="text"
 					bind:value={newDomain}
 					placeholder="api.example.com"
 					required
-					class="w-full px-3 py-2 border rounded font-mono"
+					class="input font-mono"
 				/>
 			</div>
 
-			<button type="submit" class="bg-nexbic-600 text-white px-4 py-2 rounded hover:bg-nexbic-700">
-				Add Domain
-			</button>
+			<button type="submit" class="btn btn-primary">Add Domain</button>
 		</form>
 	</div>
 
 	{#if loading}
-		<p class="text-gray-500">Loading...</p>
-	{:else if domains.length === 0}
-		<div class="bg-white rounded-lg shadow p-12 text-center">
-			<p class="text-gray-500">No custom domains yet. Add one above.</p>
+		<div class="flex items-center justify-center py-12">
+			<p style="color: var(--text-tertiary)">Loading...</p>
 		</div>
+	{:else if domains.length === 0}
+		<EmptyState title="No custom domains" description="Add your first custom domain above." />
 	{:else}
-		<div class="bg-white rounded-lg shadow overflow-hidden">
-			<table class="w-full">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verified</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-gray-200">
-					{#each domains as domain}
+		<div class="card overflow-hidden">
+			<div class="table-wrap">
+				<table class="w-full">
+					<thead>
 						<tr>
-							<td class="px-6 py-4 font-mono">{domain.domain}</td>
-							<td class="px-6 py-4">
-								<span class="text-xs uppercase px-2 py-1 rounded {domain.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
-									{domain.status}
-								</span>
-							</td>
-							<td class="px-6 py-4">
-								{domain.verified ? 'Yes' : 'No'}
-							</td>
-							<td class="px-6 py-4 space-x-2">
-								{#if !domain.verified}
-									<button
-										onclick={() => handleVerify(domain.id)}
-										class="text-nexbic-600 hover:underline text-sm"
-									>
-										Verify
-									</button>
-								{/if}
-								<button
-									onclick={() => handleDelete(domain.id)}
-									class="text-red-500 hover:underline text-sm"
-								>
-									Delete
-								</button>
-							</td>
+							<th>Domain</th>
+							<th>Status</th>
+							<th>Verified</th>
+							<th class="text-right">Actions</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{#each domains as domain}
+							<tr>
+								<td class="font-mono">{domain.domain}</td>
+								<td><Badge status={domain.status} /></td>
+								<td>
+									<span class="text-sm" style="color: {domain.verified ? 'var(--success)' : 'var(--text-tertiary)'}">
+										{domain.verified ? 'Yes' : 'No'}
+									</span>
+								</td>
+								<td class="text-right space-x-2">
+									{#if !domain.verified}
+										<button onclick={() => handleVerify(domain.id)} class="btn btn-ghost btn-sm text-xs">
+											Verify
+										</button>
+									{/if}
+									<button onclick={() => deleteTarget = domain.id} class="btn btn-ghost btn-sm text-xs" style="color: var(--danger)">
+										Delete
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</div>
 	{/if}
 </div>
+
+<ConfirmDialog
+	open={deleteTarget !== null}
+	title="Delete Domain"
+	description="Are you sure you want to delete this domain? This action cannot be undone."
+	confirmLabel="Delete"
+	variant="danger"
+	loading={deleting}
+	onconfirm={handleDelete}
+	oncancel={() => deleteTarget = null}
+/>

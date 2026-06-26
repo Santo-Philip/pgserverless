@@ -21,6 +21,7 @@ type Config struct {
 	PostgREST PostgRESTConfig
 	Asynq    AsynqConfig
 	Monitoring MonitoringConfig
+	Tracing  TracingConfig
 }
 
 type ServerConfig struct {
@@ -80,6 +81,12 @@ type MonitoringConfig struct {
 	MetricPath string
 }
 
+type TracingConfig struct {
+	Enabled      bool
+	OTLPEndpoint string
+	ServiceName  string
+}
+
 func Load() *Config {
 	cfg := &Config{
 		AppName:  getEnv("APP_NAME", "nexbic-platform"),
@@ -91,7 +98,7 @@ func Load() *Config {
 			ReadTimeout:     getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout:    getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
 			ShutdownTimeout: getEnvDuration("SERVER_SHUTDOWN_TIMEOUT", 10*time.Second),
-			CORSOrigins:     getEnvSlice("CORS_ORIGINS", []string{"*"}),
+			CORSOrigins:     getEnvSlice("CORS_ORIGINS", []string{"http://localhost:5173"}),
 		},
 		JWT: JWTConfig{
 			Secret:      getEnv("JWT_SECRET", "change-me-secret"),
@@ -108,6 +115,11 @@ func Load() *Config {
 		Monitoring: MonitoringConfig{
 			Enabled:    getEnvBool("MONITORING_ENABLED", true),
 			MetricPath: getEnv("METRIC_PATH", "/metrics"),
+		},
+		Tracing: TracingConfig{
+			Enabled:      getEnvBool("TRACING_ENABLED", false),
+			OTLPEndpoint: getEnv("OTLP_ENDPOINT", ""),
+			ServiceName:  getEnv("OTLP_SERVICE_NAME", "nexbic-platform"),
 		},
 	}
 

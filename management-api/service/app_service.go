@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -177,11 +177,11 @@ func (s *AppService) CreateApp(ctx context.Context, req CreateAppRequest, userID
 	}
 
 	if err := s.keyRepo.Create(ctx, adminKey); err != nil {
-		log.Printf("warning: failed to create admin key: %v", err)
+		slog.Warn("failed to create admin key", "error", err)
 	}
 
 	if err := s.keyRepo.Create(ctx, serviceKey); err != nil {
-		log.Printf("warning: failed to create service key: %v", err)
+		slog.Warn("failed to create service key", "error", err)
 	}
 
 	return &CreateAppResponse{
@@ -239,22 +239,46 @@ func quoteLiteral(val string) string {
 }
 
 func (s *AppService) reloadPostgREST() {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in postgrest reload", "panic", r)
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	reloadURL := strings.TrimRight(s.postgrestAdmin, "/") + "/r/reload"
 	req, err := http.NewRequestWithContext(ctx, "POST", reloadURL, nil)
 	if err != nil {
-		log.Printf("warning: failed to create postgrest reload request: %v", err)
+		slog.Warn("failed to create postgrest reload request", "error", err)
 		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("warning: failed to reload postgrest schema cache: %v", err)
+		slog.Warn("failed to reload postgrest schema cache", "error", err)
 		return
 	}
 	resp.Body.Close()
+}
+
+func (s *AppService) UpdateApp(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error {
+	v := utils.NewValidator()
+	if name, ok := updates["name"]; ok {
+		nameStr, _ := name.(string)
+		v.Required("name", nameStr)
+		v.MinLength("name", nameStr, 2)
+		v.MaxLength("name", nameStr, 255)
+	}
+	if desc, ok := updates["description"]; ok {
+		descStr, _ := desc.(string)
+		v.MaxLength("description", descStr, 1000)
+	}
+	if v.HasErrors() {
+		return fmt.Errorf("validation: %s", v.Error())
+	}
+	return s.appRepo.Update(ctx, id, updates)
 }
 
 func (s *AppService) GetApp(ctx context.Context, id uuid.UUID) (*models.App, error) {
