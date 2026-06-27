@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
 import type {
 	AuthResponse, Project, Database, APIKey,
 	Plan, AuditLog, QuotaUsage, QuotaLimit,
@@ -6,9 +7,8 @@ import type {
 } from '$lib/types';
 
 function getBaseUrl(): string {
-	if (browser) {
-		return window.location.origin;
-	}
+	if (env.PUBLIC_API_URL) return env.PUBLIC_API_URL;
+	if (browser) return window.location.origin;
 	return '';
 }
 
