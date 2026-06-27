@@ -16,7 +16,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: api_admin
-          POSTGRES_PASSWORD: test_password_123
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres_api
         ports:
           - 5432:5432
@@ -36,12 +36,12 @@ jobs:
 
       - name: Init DB schema
         run: |
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/001-schema.sql
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/002-functions.sql
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/003-roles.sql
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/004-platform.sql
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/005-domains.sql
-          PGPASSWORD=test_password_123 psql -h localhost -U api_admin -d postgres_api -f postgres/init/006-super-admin.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/001-schema.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/002-functions.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/003-roles.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/004-platform.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/005-domains.sql
+          PGPASSWORD=postgres psql -h localhost -U api_admin -d postgres_api -f postgres/init/006-super-admin.sql
 
       - name: Build
         run: go build ./...
@@ -52,7 +52,7 @@ jobs:
       - name: Test
         run: go test ./... -v -count=1 -timeout 60s
         env:
-          DATABASE_URL: postgres://api_admin:test_password_123@localhost:5432/postgres_api?sslmode=disable
+          DATABASE_URL: postgres://api_admin:postgres@localhost:5432/postgres_api?sslmode=disable
           JWT_SECRET: test-jwt-secret-for-ci-at-least-32-chars
           REDIS_HOST: localhost
           REDIS_PORT: "6379"
