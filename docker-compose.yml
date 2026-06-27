@@ -69,7 +69,7 @@ services:
     networks:
       - internal
     ports:
-      - "${DASHBOARD_PORT:-2122}:2122"
+      - "2122:2122"
     environment:
       PUBLIC_API_URL: http://localhost:2121
       PORT: 2122
