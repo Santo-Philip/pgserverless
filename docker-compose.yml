@@ -39,7 +39,7 @@ services:
     networks:
       - internal
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+       - "${SERVER_PORT:-2121}:2121"
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${SERVER_PORT:-8080}/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${SERVER_PORT:-2121}/health"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -72,7 +72,7 @@ services:
       - "${DASHBOARD_PORT:-5173}:5173"
     environment:
       ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
-      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:2121}
       PORT: 5173
     depends_on:
       api:

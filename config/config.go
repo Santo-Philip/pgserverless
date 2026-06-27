@@ -45,7 +45,7 @@ func Load() *Config {
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 		Server: ServerConfig{
 			Host:            getEnv("SERVER_HOST", "0.0.0.0"),
-			Port:            getEnvInt("SERVER_PORT", 8080),
+			Port:            getEnvInt("SERVER_PORT", 2121),
 			ReadTimeout:     getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout:    getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
 			ShutdownTimeout: getEnvDuration("SERVER_SHUTDOWN_TIMEOUT", 10*time.Second),
