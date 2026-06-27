@@ -63,17 +63,11 @@
 
 		<nav class="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Sidebar">
 			<NavItem href="/" icon="◉" active={$page.url.pathname === '/'}>Dashboard</NavItem>
-			<NavItem href="/apps" icon="▦" active={$page.url.pathname.startsWith('/apps')}>Applications</NavItem>
-			<NavItem href="/database" icon="▤" active={$page.url.pathname === '/database'}>Database</NavItem>
+			<NavItem href="/projects" icon="▦" active={$page.url.pathname.startsWith('/projects')}>Projects</NavItem>
 			<NavItem href="/api-keys" icon="🔑" active={$page.url.pathname === '/api-keys'}>API Keys</NavItem>
-			<NavItem href="/rest-api" icon="↗" active={$page.url.pathname === '/rest-api'}>REST API</NavItem>
-			<NavItem href="/extensions" icon="◆" active={$page.url.pathname === '/extensions'}>Extensions</NavItem>
-			<NavItem href="/logs" icon="☰" active={$page.url.pathname.startsWith('/logs')}>Logs</NavItem>
+			<NavItem href="/audit-logs" icon="☰" active={$page.url.pathname === '/audit-logs'}>Audit Logs</NavItem>
+			<NavItem href="/plans" icon="☆" active={$page.url.pathname === '/plans'}>Plans</NavItem>
 			<NavItem href="/settings" icon="⚙" active={$page.url.pathname === '/settings'}>Settings</NavItem>
-
-			<div class="pt-4 mt-4 border-t" style="border-color: var(--border-primary);">
-				<NavItem href="/users" icon="👥" active={$page.url.pathname === '/users'}>Users</NavItem>
-			</div>
 		</nav>
 	</aside>
 

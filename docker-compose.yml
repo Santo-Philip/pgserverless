@@ -8,15 +8,17 @@ services:
       - internal
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ./migrations:/docker-entrypoint-initdb.d
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER:-api_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+      POSTGRES_DB: ${DB_NAME:-postgres_api}
       TZ: UTC
       PGTZ: UTC
+    ports:
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-api_admin} -d ${DB_NAME:-postgres_api}"]
       interval: 10s
@@ -29,334 +31,24 @@ services:
           memory: 384M
         reservations:
           memory: 192M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  pgbouncer:
-    image: edoburu/pgbouncer:latest
-    container_name: nexbic-pgbouncer
-    restart: unless-stopped
-    networks:
-      - internal
-    volumes:
-      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
-      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
-    depends_on:
-      postgres:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  postgrest:
-    image: postgrest/postgrest:latest
-    container_name: nexbic-postgrest
-    restart: unless-stopped
-    networks:
-      - internal
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./postgrest/postgrest.conf:/etc/postgrest.conf
-    env_file:
-      - .env
-    environment:
-      PGRST_DB_URI: postgres://${DB_USER}:${DB_PASSWORD}@pgbouncer:6432/${DB_NAME}
-      PGRST_DB_SCHEMA: public
-      PGRST_DB_ANON_ROLE: anon
-      PGRST_DB_ROOT_SPEC: root
-      PGRST_JWT_SECRET: ${JWT_SECRET}
-      PGRST_JWT_AUD: ${JWT_AUD:-nexbic-platform}
-      PGRST_OPENAPI_MODE: ignore-privileges
-      PGRST_ADMIN_SERVER_PORT: 3001
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  redis:
-    image: redis:7-alpine
-    container_name: nexbic-redis
-    restart: unless-stopped
-    networks:
-      - internal
-    command:
-      - /bin/sh
-      - -c
-      - if [ -n "$$REDIS_PASSWORD" ]; then exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"; else exec redis-server --appendonly yes; fi
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  gateway:
+  api:
     build:
       context: .
-      dockerfile: Dockerfile.gateway
-    container_name: nexbic-gateway
-    restart: unless-stopped
-    networks:
-      - internal
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  management-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.management-api
-    container_name: nexbic-management-api
-    restart: unless-stopped
-    networks:
-      - internal
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${MGMT_PORT:-8081}/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
-    container_name: nexbic-worker
-    restart: unless-stopped
-    networks:
-      - internal
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.dashboard
-    container_name: nexbic-dashboard
-    restart: unless-stopped
-    networks:
-      - internal
-    env_file:
-      - .env
-    environment:
-      ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:${API_PORT:-2121}}
-      PORT: ${DASHBOARD_PORT:-5173}
-    depends_on:
-      management-api:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${DASHBOARD_PORT:-5173}/"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: nexbic-caddy
+      dockerfile: Dockerfile.server
+    container_name: nexbic-api
     restart: unless-stopped
     networks:
       - internal
     ports:
-      - "${API_PORT:-2121}:8080"
-      - "${API_PORT_SSL:-8443}:443"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - "${SERVER_PORT:-8080}:8080"
     depends_on:
-      gateway:
-        condition: service_started
-      management-api:
-        condition: service_started
-      dashboard:
-        condition: service_started
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: nexbic-prometheus
-    restart: unless-stopped
-    networks:
-      - internal
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  loki:
-    image: grafana/loki:latest
-    container_name: nexbic-loki
-    restart: unless-stopped
-    networks:
-      - internal
-    volumes:
-      - ./loki/loki-config.yml:/etc/loki/loki-config.yml
-      - loki_data:/tmp/loki
-    command:
-      - '-config.file=/etc/loki/loki-config.yml'
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${SERVER_PORT:-8080}/health"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -367,51 +59,24 @@ services:
           memory: 256M
         reservations:
           memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: nexbic-grafana
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: nexbic-dashboard
     restart: unless-stopped
     networks:
       - internal
-    volumes:
-      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - grafana_data:/var/lib/grafana
+    ports:
+      - "${DASHBOARD_PORT:-5173}:5173"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-      - GF_USERS_DEFAULT_THEME=dark
-      - GF_INSTALL_PLUGINS=
+      ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      PORT: 5173
     depends_on:
-      prometheus:
+      api:
         condition: service_started
-      loki:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 networks:
   internal:
@@ -419,9 +84,3 @@ networks:
 
 volumes:
   postgres_data:
-  redis_data:
-  caddy_data:
-  caddy_config:
-  prometheus_data:
-  loki_data:
-  grafana_data:

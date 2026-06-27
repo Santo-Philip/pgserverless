@@ -1,5 +1,9 @@
 import { browser } from '$app/environment';
-import type { AuthResponse, App, APIKey, Domain, User, PlatformSettings } from '$lib/types';
+import type {
+	AuthResponse, Project, Database, APIKey,
+	Plan, AuditLog, QuotaUsage, QuotaLimit,
+	TableInfo, Extension
+} from '$lib/types';
 
 function getBaseUrl(): string {
 	if (browser) {
@@ -15,7 +19,6 @@ interface SuccessEnvelope {
 
 class ApiError extends Error {
 	status: number;
-
 	constructor(message: string, status: number) {
 		super(message);
 		this.name = 'ApiError';
@@ -40,23 +43,17 @@ class ApiClient {
 
 	setToken(token: string) {
 		this.token = token;
-		if (browser) {
-			localStorage.setItem('nexbic_token', token);
-		}
+		if (browser) localStorage.setItem('nexbic_token', token);
 	}
 
 	setRefreshToken(token: string) {
 		this.refreshToken = token;
-		if (browser) {
-			localStorage.setItem('nexbic_refresh_token', token);
-		}
+		if (browser) localStorage.setItem('nexbic_refresh_token', token);
 	}
 
 	setExpiresAt(iso: string) {
 		this.expiresAt = new Date(iso).getTime();
-		if (browser) {
-			localStorage.setItem('nexbic_expires_at', String(this.expiresAt));
-		}
+		if (browser) localStorage.setItem('nexbic_expires_at', String(this.expiresAt));
 	}
 
 	clearToken() {
@@ -81,35 +78,27 @@ class ApiClient {
 
 	private async tryRefreshToken(): Promise<void> {
 		if (!this.refreshToken) throw new Error('No refresh token');
-
-		const response = await fetch(`${getBaseUrl()}/api/v1/platform/auth/refresh`, {
+		const response = await fetch(`${getBaseUrl()}/api/v1/auth/refresh`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ refresh_token: this.refreshToken }),
 		});
-
 		if (!response.ok) {
 			this.clearToken();
 			throw new Error('Session expired');
 		}
-
 		const json = await response.json();
 		const result = json.data || json;
 		this.setToken(result.token);
 		this.setRefreshToken(result.refresh_token || this.refreshToken);
-		if (result.expires_at) {
-			this.setExpiresAt(result.expires_at);
-		}
+		if (result.expires_at) this.setExpiresAt(result.expires_at);
 	}
 
 	private async ensureAuth(): Promise<void> {
 		if (!this.token) return;
 		if (!this.isTokenExpired()) return;
 		if (this.refreshPromise) return this.refreshPromise;
-
-		this.refreshPromise = this.tryRefreshToken().finally(() => {
-			this.refreshPromise = null;
-		});
+		this.refreshPromise = this.tryRefreshToken().finally(() => { this.refreshPromise = null; });
 		return this.refreshPromise;
 	}
 
@@ -120,29 +109,14 @@ class ApiClient {
 		return json as T;
 	}
 
-	private async request<T>(
-		method: string,
-		path: string,
-		body?: unknown,
-		retried = false,
-	): Promise<T> {
+	private async request<T>(method: string, path: string, body?: unknown, retried = false): Promise<T> {
 		await this.ensureAuth();
-
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
 			Accept: 'application/json',
 		};
-
-		if (this.token) {
-			headers['Authorization'] = `Bearer ${this.token}`;
-		}
-
-		const response = await fetch(`${getBaseUrl()}${path}`, {
-			method,
-			headers,
-			body: body ? JSON.stringify(body) : undefined,
-		});
-
+		if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+		const response = await fetch(`${getBaseUrl()}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
 		if (response.status === 401 && !retried && this.refreshToken) {
 			try {
 				await this.tryRefreshToken();
@@ -152,42 +126,26 @@ class ApiClient {
 				throw new ApiError('Session expired. Please log in again.', 401);
 			}
 		}
-
 		if (response.status === 401) {
 			this.clearToken();
 			throw new ApiError('Unauthorized', 401);
 		}
-
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({ message: response.statusText }));
-			throw new ApiError(
-				error.message || `HTTP ${response.status}`,
-				response.status,
-			);
+			throw new ApiError(error.message || `HTTP ${response.status}`, response.status);
 		}
-
 		const json = await response.json();
 		return this.unwrap<T>(json);
 	}
 
-	async get<T>(path: string): Promise<T> {
-		return this.request<T>('GET', path);
-	}
+	async get<T>(path: string): Promise<T> { return this.request<T>('GET', path); }
+	async post<T>(path: string, body?: unknown): Promise<T> { return this.request<T>('POST', path, body); }
+	async patch<T>(path: string, body?: unknown): Promise<T> { return this.request<T>('PATCH', path, body); }
+	async del<T>(path: string): Promise<T> { return this.request<T>('DELETE', path); }
 
-	async post<T>(path: string, body?: unknown): Promise<T> {
-		return this.request<T>('POST', path, body);
-	}
-
-	async patch<T>(path: string, body?: unknown): Promise<T> {
-		return this.request<T>('PATCH', path, body);
-	}
-
-	async del<T>(path: string): Promise<T> {
-		return this.request<T>('DELETE', path);
-	}
-
+	// Auth
 	async login(email: string, password: string) {
-		const result = await this.post<AuthResponse>('/api/v1/platform/auth/login', { email, password });
+		const result = await this.post<AuthResponse>('/api/v1/auth/login', { email, password });
 		this.setToken(result.token);
 		if (result.refresh_token) this.setRefreshToken(result.refresh_token);
 		if (result.expires_at) this.setExpiresAt(result.expires_at);
@@ -195,137 +153,155 @@ class ApiClient {
 	}
 
 	async register(email: string, password: string, name?: string) {
-		const result = await this.post<AuthResponse>('/api/v1/platform/auth/register', { email, password, name });
+		const result = await this.post<AuthResponse>('/api/v1/auth/register', { email, password, name });
 		this.setToken(result.token);
 		if (result.refresh_token) this.setRefreshToken(result.refresh_token);
 		if (result.expires_at) this.setExpiresAt(result.expires_at);
 		return result;
 	}
 
-	async listApps(): Promise<App[]> {
-		type PaginatedApps = { data: App[]; total: number; limit: number; offset: number };
-		const result = await this.get<PaginatedApps>('/api/v1/platform/apps');
-		return Array.isArray(result) ? result : (result?.data ?? []);
+	async getMe() {
+		return this.get<User>('/api/v1/auth/me');
 	}
 
-	async getApp(id: string): Promise<App> {
-		return this.get<App>(`/api/v1/platform/apps/${id}`);
+	// Projects
+	async listProjects(): Promise<Project[]> {
+		const result = await this.get<PaginatedResponse<Project>>('/api/v1/projects');
+		return result?.data ?? [];
 	}
 
-	async createApp(name: string, slug: string, description?: string): Promise<{
-		app: App;
-		admin_key: APIKey;
-		service_key: APIKey;
-		jwt_secret: string;
-		connection_uri: string;
-	}> {
-		return this.post('/api/v1/platform/apps', { name, slug, description });
+	async getProject(id: string): Promise<Project> {
+		return this.get<Project>(`/api/v1/projects/${id}`);
 	}
 
-	async deleteApp(id: string): Promise<void> {
-		await this.del(`/api/v1/platform/apps/${id}`);
+	async createProject(name: string, slug: string, description?: string): Promise<Project> {
+		return this.post<Project>('/api/v1/projects', { name, slug, description });
 	}
 
-	async listAPIKeys(appId: string): Promise<APIKey[]> {
-		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/apikey`);
+	async updateProject(id: string, data: Partial<Project>): Promise<Project> {
+		return this.patch<Project>(`/api/v1/projects/${id}`, data);
+	}
+
+	async deleteProject(id: string): Promise<void> {
+		await this.del(`/api/v1/projects/${id}`);
+	}
+
+	// Databases
+	async listDatabases(projectId: string): Promise<Database[]> {
+		const result = await this.get<PaginatedResponse<Database>>(`/api/v1/projects/${projectId}/databases`);
+		return result?.data ?? [];
+	}
+
+	async getDatabase(id: string): Promise<Database> {
+		return this.get<Database>(`/api/v1/databases/${id}`);
+	}
+
+	async createDatabase(projectId: string, name: string): Promise<Database> {
+		return this.post<Database>('/api/v1/databases', { project_id: projectId, name });
+	}
+
+	async deleteDatabase(id: string): Promise<void> {
+		await this.del(`/api/v1/databases/${id}`);
+	}
+
+	// SQL
+	async runSQL(databaseId: string, query: string): Promise<Record<string, unknown>[]> {
+		const result = await this.post<{ data: Record<string, unknown>[] } | Record<string, unknown>[]>(`/api/v1/databases/${databaseId}/sql`, { query });
 		return Array.isArray(result) ? result : [];
 	}
 
-	async createAPIKey(appId: string, name: string, keyType: string): Promise<APIKey> {
-		return this.post(`/api/v1/platform/apps/${appId}/apikey`, { name, key_type: keyType });
-	}
-
-	async deactivateAPIKey(appId: string, keyId: string): Promise<void> {
-		await this.del(`/api/v1/platform/apps/${appId}/apikey/${keyId}`);
-	}
-
-	async listDomains(appId: string): Promise<Domain[]> {
-		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/domains`);
+	// Tables
+	async listTables(databaseId: string): Promise<TableInfo[]> {
+		const result = await this.get<TableInfo[]>(`/api/v1/databases/${databaseId}/tables`);
 		return Array.isArray(result) ? result : [];
 	}
 
-	async createDomain(appId: string, domain: string): Promise<Domain> {
-		return this.post<Domain>(`/api/v1/platform/apps/${appId}/domains`, { domain });
-	}
-
-	async deleteDomain(appId: string, domainId: string): Promise<void> {
-		await this.del(`/api/v1/platform/apps/${appId}/domains/${domainId}`);
-	}
-
-	async verifyDomain(appId: string, domainId: string): Promise<void> {
-		await this.post(`/api/v1/platform/apps/${appId}/domains/${domainId}/verify`);
-	}
-
-	async listUsers(): Promise<User[]> {
-		type PaginatedUsers = { data: User[]; total: number; limit: number; offset: number };
-		const result = await this.get<PaginatedUsers>('/api/v1/platform/users');
-		return Array.isArray(result) ? result : (result?.data ?? []);
-	}
-
-	async getUser(id: string): Promise<User> {
-		return this.get<User>(`/api/v1/platform/users/${id}`);
-	}
-
-	async suspendUser(id: string): Promise<void> {
-		await this.post(`/api/v1/platform/users/${id}/suspend`);
-	}
-
-	async activateUser(id: string): Promise<void> {
-		await this.post(`/api/v1/platform/users/${id}/activate`);
-	}
-
-	async getSettings(): Promise<PlatformSettings> {
-		return this.get<PlatformSettings>('/api/v1/platform/settings');
-	}
-
-	async updateSettings(settings: Partial<PlatformSettings>): Promise<void> {
-		await this.patch('/api/v1/platform/settings', settings);
-	}
-
-	async listExtensions(appId: string): Promise<{name: string; version: string; description: string; installed: boolean}[]> {
-		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/extensions`);
+	async getTableData(databaseId: string, table: string, limit = 100, offset = 0): Promise<Record<string, unknown>[]> {
+		const result = await this.get<Record<string, unknown>[]>(`/api/v1/databases/${databaseId}/tables/${table}?limit=${limit}&offset=${offset}`);
 		return Array.isArray(result) ? result : [];
 	}
 
-	async toggleExtension(appId: string, name: string, install: boolean): Promise<void> {
-		await this.post(`/api/v1/platform/apps/${appId}/extensions/toggle`, { name, install });
+	async createTable(databaseId: string, name: string, columns: { name: string; type: string; nullable: boolean; is_pk: boolean; default_value?: string }[]): Promise<void> {
+		await this.post(`/api/v1/databases/${databaseId}/tables`, { name, columns });
 	}
 
-	async listTables(appId: string): Promise<{name: string; columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value: string}[]}[]> {
-		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables`);
-		if (Array.isArray(result)) return result;
-		if (result && typeof result === 'object' && 'tables' in result) {
-			const tables = (result as {tables: unknown[]}).tables;
-			return Array.isArray(tables) ? tables.map((t: unknown) => typeof t === 'string' ? { name: t, columns: [] } : t as {name: string; columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value: string}[]}) : [];
-		}
-		return [];
+	async addColumn(databaseId: string, table: string, column: { name: string; type: string; nullable: boolean; default_value?: string }): Promise<void> {
+		await this.post(`/api/v1/databases/${databaseId}/tables/${table}/columns`, column);
 	}
 
-	async getTableData(appId: string, tableName: string): Promise<Record<string, unknown>[]> {
-		const result = await this.get<unknown>(`/api/v1/platform/apps/${appId}/tables/${tableName}`);
+	async insertRow(databaseId: string, table: string, values: Record<string, unknown>): Promise<void> {
+		await this.post(`/api/v1/databases/${databaseId}/tables/${table}/rows`, { values });
+	}
+
+	async updateRow(databaseId: string, table: string, values: Record<string, unknown>, where: Record<string, unknown>): Promise<void> {
+		await this.patch(`/api/v1/databases/${databaseId}/tables/${table}/rows`, { values, where });
+	}
+
+	async deleteRow(databaseId: string, table: string, where: Record<string, unknown>): Promise<void> {
+		await this.del(`/api/v1/databases/${databaseId}/tables/${table}/rows`, { where });
+	}
+
+	// API Keys
+	async listAPIKeys(): Promise<APIKey[]> {
+		const result = await this.get<PaginatedResponse<APIKey>>('/api/v1/api-keys');
+		return result?.data ?? [];
+	}
+
+	async listProjectAPIKeys(projectId: string): Promise<APIKey[]> {
+		const result = await this.get<PaginatedResponse<APIKey>>(`/api/v1/projects/${projectId}/api-keys`);
+		return result?.data ?? [];
+	}
+
+	async createAPIKey(name: string, keyType: string, projectId?: string): Promise<APIKey> {
+		return this.post<APIKey>('/api/v1/api-keys', { name, key_type: keyType, project_id: projectId });
+	}
+
+	async revokeAPIKey(id: string): Promise<void> {
+		await this.del(`/api/v1/api-keys/${id}`);
+	}
+
+	// Plans
+	async listPlans(): Promise<Plan[]> {
+		const result = await this.get<Plan[]>('/api/v1/plans');
 		return Array.isArray(result) ? result : [];
 	}
 
-	async createTable(appId: string, name: string, columns: {name: string; type: string; nullable: boolean; is_pk: boolean; default_value?: string}[]): Promise<void> {
-		await this.post(`/api/v1/platform/apps/${appId}/tables`, { name, columns });
+	async createPlan(data: Partial<Plan>): Promise<Plan> {
+		return this.post<Plan>('/api/v1/plans', data);
 	}
 
-	async addColumn(appId: string, tableName: string, column: {name: string; type: string; nullable: boolean; default_value?: string}): Promise<void> {
-		await this.post(`/api/v1/platform/apps/${appId}/tables/${tableName}/columns`, column);
+	async updatePlan(id: string, data: Partial<Plan>): Promise<Plan> {
+		return this.patch<Plan>(`/api/v1/plans/${id}`, data);
 	}
 
-	async insertRow(appId: string, tableName: string, values: Record<string, unknown>): Promise<void> {
-		await this.post(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`, { values });
+	// Quota
+	async getProjectQuota(projectId: string): Promise<{ usage: QuotaUsage; limits: QuotaLimit }> {
+		return this.get(`/api/v1/projects/${projectId}/quota`);
 	}
 
-	async updateRow(appId: string, tableName: string, values: Record<string, unknown>, where: Record<string, unknown>): Promise<void> {
-		await this.patch(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`, { values, where });
+	// Audit Logs
+	async listAuditLogs(): Promise<AuditLog[]> {
+		const result = await this.get<PaginatedResponse<AuditLog>>('/api/v1/audit-logs');
+		return result?.data ?? [];
 	}
 
-	async deleteRow(appId: string, tableName: string, where: Record<string, unknown>): Promise<void> {
-		await this.del(`/api/v1/platform/apps/${appId}/tables/${tableName}/rows`);
+	// Extensions
+	async listExtensions(): Promise<Extension[]> {
+		const result = await this.get<Extension[]>('/api/v1/extensions');
+		return Array.isArray(result) ? result : [];
+	}
+
+	async toggleExtension(name: string, install: boolean): Promise<void> {
+		await this.post('/api/v1/extensions/toggle', { name, install });
 	}
 }
 
 export const api = new ApiClient();
 export { ApiError };
+
+interface PaginatedResponse<T> {
+	data: T[];
+	total: number;
+	limit: number;
+	offset: number;
+}

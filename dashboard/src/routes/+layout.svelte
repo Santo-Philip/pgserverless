@@ -1,4 +1,4 @@
-<script lang="ts">
+	<script lang="ts">
 	import '../app.css';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { isAuthenticated } from '$lib/stores/auth';
@@ -11,7 +11,7 @@
 	let authChecked = $state(false);
 
 	onMount(() => {
-		if (!$isAuthenticated && !$page.url.pathname.startsWith('/login') && !$page.url.pathname.startsWith('/register')) {
+		if (!$isAuthenticated && $page.url.pathname !== '/login') {
 			goto('/login');
 		}
 		authChecked = true;
@@ -28,7 +28,7 @@
 	<Sidebar>
 		{@render children()}
 	</Sidebar>
-{:else if $page.url.pathname.startsWith('/login') || $page.url.pathname.startsWith('/register')}
+{:else if $page.url.pathname.startsWith('/login')}
 	{@render children()}
 {/if}
 

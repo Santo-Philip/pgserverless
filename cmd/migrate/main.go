@@ -9,33 +9,35 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nexbic/platform/shared/config"
+	"github.com/nexbic/platform/config"
+	"github.com/nexbic/platform/pkg/database"
 )
 
 func main() {
 	cfg := config.Load()
-	migrationsDir := "postgres/init"
-	if len(os.Args) > 1 {
-		migrationsDir = os.Args[1]
-	}
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		cfg.Database.User, cfg.Database.Password,
-		cfg.Database.Host, cfg.Database.Port,
-		cfg.Database.DBName, cfg.Database.SSLMode)
+	ctx := context.Background()
 
-	pool, err := pgxpool.New(context.Background(), dsn)
+	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
-		slog.Error("failed to connect", "error", err)
+		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer pool.Close()
+	defer db.Close()
 
-	entries, err := os.ReadDir(migrationsDir)
-	if err != nil {
-		slog.Error("failed to read migrations directory", "path", migrationsDir, "error", err)
+	if err := runMigrations(ctx, db); err != nil {
+		slog.Error("migration failed", "error", err)
 		os.Exit(1)
+	}
+
+	slog.Info("migrations complete")
+}
+
+func runMigrations(ctx context.Context, db *database.DB) error {
+	dir := "migrations"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("read migrations dir: %w", err)
 	}
 
 	var files []string
@@ -46,23 +48,61 @@ func main() {
 	}
 	sort.Strings(files)
 
-	for _, f := range files {
-		path := filepath.Join(migrationsDir, f)
-		slog.Info("applying migration", "file", f)
-
-		sql, err := os.ReadFile(path)
+	for _, file := range files {
+		path := filepath.Join(dir, file)
+		content, err := os.ReadFile(path)
 		if err != nil {
-			slog.Error("failed to read migration", "file", f, "error", err)
-			os.Exit(1)
+			return fmt.Errorf("read %s: %w", file, err)
 		}
 
-		if _, err := pool.Exec(context.Background(), string(sql)); err != nil {
-			slog.Error("failed to apply migration", "file", f, "error", err)
-			os.Exit(1)
-		}
+		slog.Info("running migration", "file", file)
 
-		slog.Info("migration applied", "file", f)
+		sql := string(content)
+
+		statements := splitSQL(sql)
+		for i, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+			if _, err := db.Pool.Exec(ctx, stmt); err != nil {
+				return fmt.Errorf("migration %s statement %d: %w", file, i+1, err)
+			}
+		}
 	}
 
-	slog.Info("all migrations applied successfully")
+	return nil
+}
+
+func splitSQL(sql string) []string {
+	var statements []string
+	current := strings.Builder{}
+	for _, line := range strings.Split(sql, "\n") {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "--") {
+			continue
+		}
+
+		if trimmed == "" {
+			continue
+		}
+
+		current.WriteString(line)
+		current.WriteString("\n")
+
+		if strings.HasSuffix(trimmed, ";") {
+			statements = append(statements, current.String())
+			current.Reset()
+		}
+	}
+
+	if current.Len() > 0 {
+		remaining := strings.TrimSpace(current.String())
+		if remaining != "" {
+			statements = append(statements, remaining)
+		}
+	}
+
+	return statements
 }
