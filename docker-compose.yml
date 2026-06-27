@@ -71,8 +71,7 @@ services:
     ports:
       - "${DASHBOARD_PORT:-2122}:2122"
     environment:
-      ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:2122}
-      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:2121}
+      PUBLIC_API_URL: http://localhost:2121
       PORT: 2122
     depends_on:
       api:
