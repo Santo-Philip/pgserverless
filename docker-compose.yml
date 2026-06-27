@@ -39,7 +39,7 @@ services:
     networks:
       - internal
     ports:
-       - "${SERVER_PORT:-2121}:2121"
+      - "${SERVER_PORT:-2121}:2121"
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,11 +69,11 @@ services:
     networks:
       - internal
     ports:
-      - "${DASHBOARD_PORT:-5173}:5173"
+      - "${DASHBOARD_PORT:-2122}:2122"
     environment:
-      ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
+      ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:2122}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:2121}
-      PORT: 5173
+      PORT: 2122
     depends_on:
       api:
         condition: service_started
