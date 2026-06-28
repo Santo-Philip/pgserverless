@@ -1,5 +1,11 @@
-FROM golang:1.25-alpine AS builder
+FROM node:22-alpine AS frontend
+WORKDIR /app
+COPY dashboard/package.json dashboard/package-lock.json ./dashboard/
+RUN cd dashboard && npm ci
+COPY dashboard/ ./dashboard/
+RUN cd dashboard && npm run build
 
+FROM golang:1.25-alpine AS backend
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -7,10 +13,11 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /app/server ./cmd/server
 
 FROM alpine:3.20
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata wget
 WORKDIR /app
-COPY --from=builder /app/server .
-COPY --from=builder /app/migrations ./migrations
+COPY --from=backend /app/server .
+COPY --from=backend /app/migrations ./migrations
+COPY --from=frontend /app/dashboard/build ./dashboard/build
 
 EXPOSE 2121
 CMD ["./server"]
