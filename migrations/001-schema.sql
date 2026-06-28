@@ -1,13 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Users table for platform authentication
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name VARCHAR(255) NOT NULL DEFAULT '',
-    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    role VARCHAR(20) NOT NULL DEFAULT 'read_only',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -17,7 +16,6 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 
--- Refresh tokens for JWT refresh flow
 CREATE TABLE refresh_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -29,104 +27,22 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 
--- Projects (replaces "apps" from old BaaS)
-CREATE TABLE projects (
+CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    plan_id UUID,
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_projects_slug ON projects(slug);
-
--- API keys (SYSTEM, SERVICE, PROJECT scoped)
-CREATE TABLE api_keys (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    key_type VARCHAR(20) NOT NULL DEFAULT 'project',
-    key_hash TEXT NOT NULL,
-    key_prefix VARCHAR(11) NOT NULL,
-    scopes TEXT[] NOT NULL DEFAULT '{}',
-    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-    rate_limit INTEGER NOT NULL DEFAULT 1000,
-    allowed_ips TEXT[] DEFAULT '{}',
-    origins TEXT[] DEFAULT '{}',
-    expires_at TIMESTAMPTZ,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL,
+    ip_address VARCHAR(45) NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT '',
+    device_info TEXT NOT NULL DEFAULT '',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    revoked_at TIMESTAMPTZ,
-    created_by UUID NOT NULL REFERENCES users(id),
+    last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX idx_api_keys_type ON api_keys(key_type);
-CREATE INDEX idx_api_keys_project ON api_keys(project_id);
-CREATE INDEX idx_api_keys_prefix ON api_keys(key_prefix);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_sessions_token ON sessions(token_hash);
 
--- Managed databases
-CREATE TABLE databases (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    schema_name VARCHAR(255) NOT NULL,
-    db_user VARCHAR(255) NOT NULL,
-    db_password TEXT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'provisioning',
-    size_bytes BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_databases_project ON databases(project_id);
-
--- Database users
-CREATE TABLE database_users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    database_id UUID NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_database_users_db ON database_users(database_id);
-
--- Backups
-CREATE TABLE backups (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    database_id UUID NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
-    size_bytes BIGINT NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_backups_database ON backups(database_id);
-
--- Plans
-CREATE TABLE plans (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    max_databases INTEGER NOT NULL DEFAULT 1,
-    max_storage_mb BIGINT NOT NULL DEFAULT 100,
-    max_connections INTEGER NOT NULL DEFAULT 20,
-    max_requests INTEGER NOT NULL DEFAULT 10000,
-    max_api_keys INTEGER NOT NULL DEFAULT 5,
-    price DECIMAL(10,2) NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Add plan_id FK to projects (deferred to avoid circular dependency)
-ALTER TABLE projects ADD CONSTRAINT fk_projects_plan FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL;
-
--- Audit logs
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     actor_id UUID NOT NULL REFERENCES users(id),
@@ -134,6 +50,8 @@ CREATE TABLE audit_logs (
     resource VARCHAR(255) NOT NULL,
     resource_id VARCHAR(255) NOT NULL DEFAULT '',
     metadata JSONB DEFAULT '{}',
+    before_values JSONB DEFAULT '{}',
+    after_values JSONB DEFAULT '{}',
     ip_address VARCHAR(45) NOT NULL DEFAULT '',
     user_agent TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -142,22 +60,71 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_id);
 CREATE INDEX idx_audit_logs_resource ON audit_logs(resource, resource_id);
 CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 
--- Usage logs (for quota tracking)
-CREATE TABLE usage_logs (
+CREATE TABLE saved_queries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    database_id UUID REFERENCES databases(id) ON DELETE SET NULL,
-    api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
-    request_count INTEGER NOT NULL DEFAULT 0,
-    response_time_ms INTEGER DEFAULT 0,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    query_text TEXT NOT NULL,
+    database_name VARCHAR(255) NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    is_shared BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_saved_queries_user ON saved_queries(user_id);
+
+CREATE TABLE query_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    query_text TEXT NOT NULL,
+    database_name VARCHAR(255) NOT NULL DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    rows_affected INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'success',
+    error_message TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_usage_logs_project ON usage_logs(project_id);
-CREATE INDEX idx_usage_logs_created ON usage_logs(created_at);
+CREATE INDEX idx_query_history_user ON query_history(user_id);
+CREATE INDEX idx_query_history_created ON query_history(created_at DESC);
 
--- Trigger function for updated_at
+CREATE TABLE backup_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    database_name VARCHAR(255) NOT NULL DEFAULT '',
+    size_bytes BIGINT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    type VARCHAR(20) NOT NULL DEFAULT 'manual',
+    file_path TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    completed_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_backup_history_status ON backup_history(status);
+CREATE INDEX idx_backup_history_created ON backup_history(created_at DESC);
+
+CREATE TABLE platform_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    settings JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT single_row CHECK (id = 1)
+);
+
+INSERT INTO platform_settings (id, settings)
+VALUES (1, '{
+    "app_name": "Nexbic PG Admin",
+    "log_level": "info",
+    "password_min_length": 8,
+    "session_timeout_minutes": 480,
+    "maintenance_mode": false
+}')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -166,9 +133,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply updated_at triggers
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_projects_updated_at BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_api_keys_updated_at BEFORE UPDATE ON api_keys FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_databases_updated_at BEFORE UPDATE ON databases FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_plans_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_saved_queries_updated_at BEFORE UPDATE ON saved_queries FOR EACH ROW EXECUTE FUNCTION update_updated_at();

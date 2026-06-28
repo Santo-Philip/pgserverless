@@ -16,9 +16,15 @@ type Config struct {
 	AppEnv   string
 	LogLevel string
 
-	Server   ServerConfig
-	Database database.Config
-	JWT      JWTConfig
+	Server     ServerConfig
+	Database   database.Config
+	JWT        JWTConfig
+	SuperAdmin SuperAdminConfig
+}
+
+type SuperAdminConfig struct {
+	Email    string
+	Password string
 }
 
 type ServerConfig struct {
@@ -57,6 +63,10 @@ func Load() *Config {
 			RefreshTTL:  getEnvDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
 			Issuer:      getEnv("JWT_ISSUER", "nexbic-db-platform"),
 			Audience:    getEnv("JWT_AUD", "nexbic-db-platform"),
+		},
+		SuperAdmin: SuperAdminConfig{
+			Email:    getEnv("SUPER_ADMIN_EMAIL", ""),
+			Password: getEnv("SUPER_ADMIN_PASSWORD", ""),
 		},
 	}
 

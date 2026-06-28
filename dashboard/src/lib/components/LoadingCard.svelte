@@ -1,15 +1,21 @@
 <script lang="ts">
-	let { icon = true }: { icon?: boolean } = $props();
+  import type { Snippet } from 'svelte';
+
+  let {
+    rows = 3,
+    children,
+  }: {
+    rows?: number;
+    children?: Snippet;
+  } = $props();
 </script>
 
 <div class="card p-5">
-	<div class="flex items-center gap-3">
-		{#if icon}
-			<div class="skeleton w-10 h-10 rounded-lg"></div>
-		{/if}
-		<div class="flex-1 space-y-2">
-			<div class="skeleton h-4 w-1/3"></div>
-			<div class="skeleton h-3 w-1/2"></div>
-		</div>
-	</div>
+  {#if children}
+    {@render children()}
+  {:else}
+    {#each Array(rows) as _}
+      <div class="skeleton h-4 w-full mb-3 rounded-lg"></div>
+    {/each}
+  {/if}
 </div>

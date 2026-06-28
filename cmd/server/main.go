@@ -3,17 +3,16 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/nexbic/platform/config"
-	"github.com/nexbic/platform/internal/apikey/handlers"
-	apikeyRepo "github.com/nexbic/platform/internal/apikey/repository"
-	apikeyRoutes "github.com/nexbic/platform/internal/apikey/routes"
-	apikeyService "github.com/nexbic/platform/internal/apikey/service"
 	auditHandlers "github.com/nexbic/platform/internal/audit/handlers"
 	auditRoutes "github.com/nexbic/platform/internal/audit/routes"
 	auditService "github.com/nexbic/platform/internal/audit/service"
@@ -21,22 +20,37 @@ import (
 	authRepo "github.com/nexbic/platform/internal/auth/repository"
 	authRoutes "github.com/nexbic/platform/internal/auth/routes"
 	authService "github.com/nexbic/platform/internal/auth/service"
-	dbHandlers "github.com/nexbic/platform/internal/database/handlers"
-	dbRepo "github.com/nexbic/platform/internal/database/repository"
-	dbRoutes "github.com/nexbic/platform/internal/database/routes"
-	dbService "github.com/nexbic/platform/internal/database/service"
+	backupHandlers "github.com/nexbic/platform/internal/backups/handlers"
+	backupRoutes "github.com/nexbic/platform/internal/backups/routes"
+	backupService "github.com/nexbic/platform/internal/backups/service"
+	dashHandlers "github.com/nexbic/platform/internal/dashboard/handlers"
+	dashRoutes "github.com/nexbic/platform/internal/dashboard/routes"
+	dashService "github.com/nexbic/platform/internal/dashboard/service"
+	explorerHandlers "github.com/nexbic/platform/internal/explorer/handlers"
+	explorerRoutes "github.com/nexbic/platform/internal/explorer/routes"
+	explorerService "github.com/nexbic/platform/internal/explorer/service"
+	extHandlers "github.com/nexbic/platform/internal/extensions/handlers"
+	extRoutes "github.com/nexbic/platform/internal/extensions/routes"
+	extService "github.com/nexbic/platform/internal/extensions/service"
+	logsHandlers "github.com/nexbic/platform/internal/logs/handlers"
+	logsRoutes "github.com/nexbic/platform/internal/logs/routes"
+	logsService "github.com/nexbic/platform/internal/logs/service"
 	"github.com/nexbic/platform/internal/middleware"
-	planHandlers "github.com/nexbic/platform/internal/plan/handlers"
-	planRepo "github.com/nexbic/platform/internal/plan/repository"
-	planRoutes "github.com/nexbic/platform/internal/plan/routes"
-	planService "github.com/nexbic/platform/internal/plan/service"
-	projectHandlers "github.com/nexbic/platform/internal/project/handlers"
-	projectRepo "github.com/nexbic/platform/internal/project/repository"
-	projectRoutes "github.com/nexbic/platform/internal/project/routes"
-	projectService "github.com/nexbic/platform/internal/project/service"
-	quotaHandlers "github.com/nexbic/platform/internal/quota/handlers"
-	quotaRoutes "github.com/nexbic/platform/internal/quota/routes"
-	quotaService "github.com/nexbic/platform/internal/quota/service"
+	monHandlers "github.com/nexbic/platform/internal/monitoring/handlers"
+	monRoutes "github.com/nexbic/platform/internal/monitoring/routes"
+	monService "github.com/nexbic/platform/internal/monitoring/service"
+	pgroleHandlers "github.com/nexbic/platform/internal/pgroles/handlers"
+	pgroleRoutes "github.com/nexbic/platform/internal/pgroles/routes"
+	pgroleService "github.com/nexbic/platform/internal/pgroles/service"
+	schemaHandlers "github.com/nexbic/platform/internal/schema/handlers"
+	schemaRoutes "github.com/nexbic/platform/internal/schema/routes"
+	schemaService "github.com/nexbic/platform/internal/schema/service"
+	sqlHandlers "github.com/nexbic/platform/internal/sql/handlers"
+	sqlRoutes "github.com/nexbic/platform/internal/sql/routes"
+	sqlService "github.com/nexbic/platform/internal/sql/service"
+	tableHandlers "github.com/nexbic/platform/internal/tables/handlers"
+	tableRoutes "github.com/nexbic/platform/internal/tables/routes"
+	tableService "github.com/nexbic/platform/internal/tables/service"
 	"github.com/nexbic/platform/pkg/database"
 )
 
@@ -57,30 +71,51 @@ func main() {
 
 	userRepo := authRepo.NewUserRepository(db)
 	tokenRepo := authRepo.NewRefreshTokenRepo(db)
-	authSvc := authService.NewAuthService(userRepo, tokenRepo, cfg.JWT)
+	authSvc := authService.NewAuthService(userRepo, tokenRepo, cfg.JWT, cfg.SuperAdmin)
 	authHandler := authHandlers.NewAuthHandler(authSvc)
 
-	projectRepo := projectRepo.NewProjectRepository(db)
-	projectSvc := projectService.NewProjectService(projectRepo)
-	projectHandler := projectHandlers.NewProjectHandler(projectSvc)
-
-	databaseRepo := dbRepo.NewDatabaseRepository(db)
-	databaseSvc := dbService.NewDatabaseService(databaseRepo)
-	databaseHandler := dbHandlers.NewDatabaseHandler(databaseSvc)
-
-	apikeyRepo := apikeyRepo.NewAPIKeyRepository(db)
-	apikeySvc := apikeyService.NewAPIKeyService(apikeyRepo)
-	apikeyHandler := handlers.NewAPIKeyHandler(apikeySvc)
-
-	planRepo := planRepo.NewPlanRepository(db)
-	planSvc := planService.NewPlanService(planRepo)
-	planHandler := planHandlers.NewPlanHandler(planSvc)
-
-	quotaSvc := quotaService.NewQuotaService(db, projectRepo)
-	quotaHandler := quotaHandlers.NewQuotaHandler(quotaSvc)
+	if cfg.SuperAdmin.Email != "" {
+		authSvc.SeedSuperAdmin(ctx)
+	}
 
 	auditSvc := auditService.NewAuditService(db)
 	auditHandler := auditHandlers.NewAuditHandler(auditSvc)
+
+	dashSvc := dashService.NewDashboardService(db)
+	dashHandler := dashHandlers.NewDashboardHandler(dashSvc)
+
+	explorerSvc := explorerService.NewExplorerService(db)
+	explorerHandler := explorerHandlers.NewExplorerHandler(explorerSvc)
+
+	tableSvc := tableService.NewTablesService(db)
+	tableHandler := tableHandlers.NewTablesHandler(tableSvc)
+
+	sqlSvc := sqlService.NewSQLService(db)
+	sqlHandler := sqlHandlers.NewSQLHandler(sqlSvc)
+
+	schemaSvc := schemaService.NewSchemaService(db)
+	schemaHandler := schemaHandlers.NewSchemaHandler(schemaSvc)
+
+	pgroleSvc := pgroleService.NewPgRolesService(db)
+	pgroleHandler := pgroleHandlers.NewPgRolesHandler(pgroleSvc)
+
+	extSvc := extService.NewExtensionsService(db)
+	extHandler := extHandlers.NewExtensionsHandler(extSvc)
+
+	monSvc := monService.NewMonitoringService(db)
+	monHandler := monHandlers.NewMonitoringHandler(monSvc)
+
+	backupDir := os.Getenv("BACKUP_DIR")
+	if backupDir == "" {
+		backupDir = "/data/backups"
+	}
+	backupSvc := backupService.NewBackupService(db, backupDir,
+		cfg.Database.Host, strconv.Itoa(cfg.Database.Port),
+		cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+	backupHandler := backupHandlers.NewBackupHandler(backupSvc)
+
+	logsSvc := logsService.NewLogsService(db)
+	logsHandler := logsHandlers.NewLogsHandler(logsSvc)
 
 	f := fiber.New(fiber.Config{
 		ReadTimeout:       cfg.Server.ReadTimeout,
@@ -103,7 +138,7 @@ func main() {
 	f.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "healthy",
-			"service": "nexbic-db-platform",
+			"service": "nexbic-pg-admin",
 		})
 	})
 
@@ -119,15 +154,29 @@ func main() {
 		})
 	})
 
-	api := f.Group("/api/v1")
+	api := f.Group("/api")
 
 	authRoutes.RegisterAuthRoutes(api, authHandler, authMW)
-	projectRoutes.RegisterProjectRoutes(api, projectHandler, authMW)
-	dbRoutes.RegisterDatabaseRoutes(api, databaseHandler, authMW)
-	apikeyRoutes.RegisterAPIKeyRoutes(api, apikeyHandler, authMW)
-	planRoutes.RegisterPlanRoutes(api, planHandler, authMW)
-	quotaRoutes.RegisterQuotaRoutes(api, quotaHandler, authMW)
 	auditRoutes.RegisterAuditRoutes(api, auditHandler, authMW)
+	dashRoutes.RegisterDashboardRoutes(api, dashHandler, authMW)
+	explorerRoutes.RegisterExplorerRoutes(api, explorerHandler, authMW)
+	tableRoutes.RegisterTablesRoutes(api, tableHandler)
+	sqlRoutes.RegisterSQLRoutes(api, sqlHandler, authMW)
+	schemaRoutes.RegisterSchemaRoutes(api, schemaHandler)
+	pgroleRoutes.RegisterPgRolesRoutes(api, pgroleHandler)
+	extRoutes.RegisterExtensionRoutes(api, extHandler, authMW)
+	monRoutes.RegisterMonitoringRoutes(api, monHandler, authMW)
+	backupRoutes.RegisterBackupRoutes(api, backupHandler, authMW)
+	logsRoutes.RegisterLogsRoutes(api, logsHandler, authMW)
+
+	// Serve SvelteKit frontend if build directory exists
+	if _, err := os.Stat("../dashboard/build"); err == nil {
+		f.Use("/", filesystem.New(filesystem.Config{
+			Root:         http.Dir("../dashboard/build"),
+			Index:        "index.html",
+			NotFoundFile: "index.html",
+		}))
+	}
 
 	f.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

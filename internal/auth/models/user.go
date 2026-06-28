@@ -6,6 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	RoleSuperAdmin = "super_admin"
+	RoleDBA        = "dba"
+	RoleDeveloper  = "developer"
+	RoleReadOnly   = "read_only"
+)
+
 type User struct {
 	ID           uuid.UUID  `json:"id"`
 	Email        string     `json:"email"`

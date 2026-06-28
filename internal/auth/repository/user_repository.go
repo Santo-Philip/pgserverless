@@ -99,8 +99,21 @@ func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) erro
 	return err
 }
 
+func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
+	_, err := r.db.Pool.Exec(ctx, `
+		UPDATE users SET name = $1, role = $2, is_active = $3, updated_at = NOW()
+		WHERE id = $4`,
+		user.Name, user.Role, user.IsActive, user.ID)
+	return err
+}
+
 func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, hash string) error {
 	_, err := r.db.Pool.Exec(ctx, `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, hash, id)
+	return err
+}
+
+func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	return err
 }
 

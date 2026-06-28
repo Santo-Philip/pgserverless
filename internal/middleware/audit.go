@@ -12,13 +12,24 @@ import (
 type AuditAction string
 
 const (
-	AuditCreate  AuditAction = "create"
-	AuditRead    AuditAction = "read"
-	AuditUpdate  AuditAction = "update"
-	AuditDelete  AuditAction = "delete"
-	AuditLogin   AuditAction = "login"
-	AuditRevoke  AuditAction = "revoke"
-	AuditRestore AuditAction = "restore"
+	AuditCreate      AuditAction = "create"
+	AuditRead        AuditAction = "read"
+	AuditUpdate      AuditAction = "update"
+	AuditDelete      AuditAction = "delete"
+	AuditLogin       AuditAction = "login"
+	AuditLogout      AuditAction = "logout"
+	AuditRevoke      AuditAction = "revoke"
+	AuditRestore     AuditAction = "restore"
+	AuditExecute     AuditAction = "execute"
+	AuditExport      AuditAction = "export"
+	AuditImport      AuditAction = "import"
+	AuditBackup      AuditAction = "backup"
+	AuditGrant       AuditAction = "grant"
+	AuditRevokePerm  AuditAction = "revoke_perm"
+	AuditEnable      AuditAction = "enable"
+	AuditDisable     AuditAction = "disable"
+	AuditPassword    AuditAction = "password"
+	AuditCancelQuery AuditAction = "cancel_query"
 )
 
 func AuditLog(action AuditAction, resource string) fiber.Handler {

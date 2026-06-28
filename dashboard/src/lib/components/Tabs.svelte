@@ -1,16 +1,25 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-
-	let { tabs }: { tabs: { label: string; href: string }[] } = $props();
+  let {
+    tabs,
+    active,
+    onchange,
+  }: {
+    tabs: { value: string; label: string }[];
+    active: string;
+    onchange: (value: string) => void;
+  } = $props();
 </script>
 
-<div class="flex gap-0 border-b" style="border-color: var(--border-primary); overflow-x: auto;">
-	{#each tabs as tab}
-		<a
-			href={tab.href}
-			class="tab {$page.url.pathname === tab.href ? 'active' : ''}"
-		>
-			{tab.label}
-		</a>
-	{/each}
+<div class="flex border-b overflow-x-auto scrollbar-hide" style="border-color: var(--border);">
+  {#each tabs as tab}
+    <button
+      class="tab"
+      class:active={active === tab.value}
+      onclick={() => onchange(tab.value)}
+      role="tab"
+      aria-selected={active === tab.value}
+    >
+      {tab.label}
+    </button>
+  {/each}
 </div>

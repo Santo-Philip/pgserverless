@@ -12,12 +12,6 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Name     string `json:"name,omitempty"`
-}
-
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
@@ -37,4 +31,26 @@ type UserResponse struct {
 	IsActive    bool       `json:"is_active"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type CreateUserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+}
+
+type UpdateUserRequest struct {
+	Name     string `json:"name,omitempty"`
+	Role     string `json:"role,omitempty"`
+	IsActive *bool  `json:"is_active,omitempty"`
+}
+
+type UpdatePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+type UpdateUserPasswordRequest struct {
+	NewPassword string `json:"new_password"`
 }

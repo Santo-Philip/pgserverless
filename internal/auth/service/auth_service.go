@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/nexbic/platform/config"
@@ -15,52 +17,56 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *authrepo.UserRepository
-	tokenRepo *authrepo.RefreshTokenRepo
-	jwtCfg    config.JWTConfig
+	userRepo      *authrepo.UserRepository
+	tokenRepo     *authrepo.RefreshTokenRepo
+	jwtCfg        config.JWTConfig
+	superAdminCfg config.SuperAdminConfig
 }
 
-func NewAuthService(userRepo *authrepo.UserRepository, tokenRepo *authrepo.RefreshTokenRepo, jwtCfg config.JWTConfig) *AuthService {
+func NewAuthService(userRepo *authrepo.UserRepository, tokenRepo *authrepo.RefreshTokenRepo, jwtCfg config.JWTConfig, superAdminCfg config.SuperAdminConfig) *AuthService {
 	return &AuthService{
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
-		jwtCfg:    jwtCfg,
+		userRepo:      userRepo,
+		tokenRepo:     tokenRepo,
+		jwtCfg:        jwtCfg,
+		superAdminCfg: superAdminCfg,
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, req *authdto.RegisterRequest) (*authdto.AuthResponse, error) {
-	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
+func (s *AuthService) SeedSuperAdmin(ctx context.Context) {
+	if s.superAdminCfg.Email == "" || s.superAdminCfg.Password == "" {
+		return
+	}
+
+	existing, err := s.userRepo.GetByEmail(ctx, s.superAdminCfg.Email)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %w", err)
+		slog.Error("seed superadmin: check existing", "error", err)
+		return
 	}
 	if existing != nil {
-		return nil, fmt.Errorf("email already registered")
+		slog.Info("superadmin already exists", "email", s.superAdminCfg.Email)
+		return
 	}
 
-	hash, err := password.Hash(req.Password)
+	hash, err := password.Hash(s.superAdminCfg.Password)
 	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
-	}
-
-	isFirst, _ := s.userRepo.Count(ctx)
-	role := "user"
-	if isFirst == 0 {
-		role = "admin"
+		slog.Error("seed superadmin: hash password", "error", err)
+		return
 	}
 
 	user := &authmodels.User{
-		Email:        req.Email,
+		Email:        s.superAdminCfg.Email,
 		PasswordHash: hash,
-		Name:         req.Name,
-		Role:         role,
+		Name:         "Super Administrator",
+		Role:         authmodels.RoleSuperAdmin,
 		IsActive:     true,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+		slog.Error("seed superadmin: create user", "error", err)
+		return
 	}
 
-	return s.generateAuthResponse(ctx, user)
+	slog.Info("superadmin seeded", "email", s.superAdminCfg.Email)
 }
 
 func (s *AuthService) Login(ctx context.Context, req *authdto.LoginRequest) (*authdto.AuthResponse, error) {
@@ -119,6 +125,93 @@ func (s *AuthService) GetUser(ctx context.Context, id uuid.UUID) (*authmodels.Us
 
 func (s *AuthService) ListUsers(ctx context.Context, limit, offset int) ([]authmodels.User, int, error) {
 	return s.userRepo.List(ctx, limit, offset)
+}
+
+func (s *AuthService) CreateUser(ctx context.Context, req *authdto.CreateUserRequest) (*authmodels.User, error) {
+	existing, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	if existing != nil {
+		return nil, fmt.Errorf("email already registered")
+	}
+
+	hash, err := password.Hash(req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	user := &authmodels.User{
+		Email:        req.Email,
+		PasswordHash: hash,
+		Name:         req.Name,
+		Role:         req.Role,
+		IsActive:     true,
+	}
+
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) UpdateUser(ctx context.Context, id uuid.UUID, req *authdto.UpdateUserRequest) (*authmodels.User, error) {
+	user, err := s.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+	if req.Role != "" {
+		user.Role = req.Role
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("update user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) UpdatePassword(ctx context.Context, userID uuid.UUID, req *authdto.UpdatePasswordRequest) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return fmt.Errorf("user not found")
+	}
+
+	valid, err := password.Verify(req.CurrentPassword, user.PasswordHash)
+	if err != nil || !valid {
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	hash, err := password.Hash(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	return s.userRepo.UpdatePassword(ctx, userID, hash)
+}
+
+func (s *AuthService) UpdateUserPassword(ctx context.Context, userID uuid.UUID, req *authdto.UpdateUserPasswordRequest) error {
+	hash, err := password.Hash(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	return s.userRepo.UpdatePassword(ctx, userID, hash)
+}
+
+func (s *AuthService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	return s.userRepo.Delete(ctx, id)
 }
 
 func (s *AuthService) generateAuthResponse(ctx context.Context, user *authmodels.User) (*authdto.AuthResponse, error) {

@@ -1,96 +1,121 @@
 <script lang="ts">
-	import NavItem from './NavItem.svelte';
-	import CommandPalette from './CommandPalette.svelte';
-	import { page } from '$app/stores';
-	import { isAuthenticated, logout } from '$lib/stores/auth';
-	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { isAuthenticated, logout } from '$lib/stores/auth';
+  import { APP_NAME_SHORT, APP_LOGO_LETTER } from '$lib/config/brand';
+  import type { Snippet } from 'svelte';
 
-	let { children }: { children: Snippet } = $props();
+  let { children }: { children: Snippet } = $props();
 
-	let commandOpen = $state(false);
-	let sidebarOpen = $state(false);
+  let collapsed = $state(false);
+  let mobileOpen = $state(false);
 
-	function toggleSidebar() {
-		sidebarOpen = !sidebarOpen;
-	}
+  type NavItem = { label: string; href: string; icon: string };
 
-	function closeSidebar() {
-		sidebarOpen = false;
-	}
+  const navItems: NavItem[] = [
+    { label: 'Dashboard', href: '/', icon: '\u25C9' },
+    { label: 'Explorer', href: '/explorer', icon: '\u25C8' },
+    { label: 'SQL', href: '/sql', icon: '\u2328' },
+    { label: 'Schema', href: '/schema', icon: '\u25CE' },
+    { label: 'Roles', href: '/roles', icon: '\uD83D\uDC64' },
+    { label: 'Extensions', href: '/extensions', icon: '\u25C6' },
+    { label: 'Monitoring', href: '/monitoring', icon: '\u25CE' },
+    { label: 'Backups', href: '/backups', icon: '\u25FC' },
+    { label: 'Logs', href: '/logs', icon: '\u25C7' },
+    { label: 'Audit', href: '/audit', icon: '\u269A' },
+    { label: 'Admin', href: '/admin', icon: '\u2699' },
+    { label: 'Settings', href: '/settings', icon: '\u26A1' },
+  ];
 
-	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-			e.preventDefault();
-			commandOpen = true;
-		}
-		if (e.key === 'Escape') {
-			commandOpen = false;
-			closeSidebar();
-		}
-	}
-
-	$effect(() => {
-		$page.url.pathname;
-		closeSidebar();
-	});
+  function isActive(href: string) {
+    if (href === '/') return $page.url.pathname === '/';
+    return $page.url.pathname.startsWith(href);
+  }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') mobileOpen = false; }} />
 
-<div class="flex h-screen overflow-hidden" style="background-color: var(--bg-primary);">
-	{#if sidebarOpen}
-		<button class="fixed inset-0 z-40 bg-black/50 lg:hidden" onclick={closeSidebar} aria-label="Close sidebar"></button>
-	{/if}
+<button
+  class="fixed inset-0 z-30 bg-black/50 transition-opacity duration-200 md:hidden"
+  class:opacity-100={mobileOpen}
+  class:opacity-0={!mobileOpen}
+  class:pointer-events-auto={mobileOpen}
+  class:pointer-events-none={!mobileOpen}
+  onclick={() => mobileOpen = false}
+  aria-label="Close sidebar"
+></button>
 
-	<aside
-		class="flex-shrink-0 flex flex-col border-r fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0"
-		class:-translate-x-full={!sidebarOpen}
-		class:translate-x-0={sidebarOpen}
-		style="width: var(--sidebar-width); background-color: var(--bg-secondary); border-color: var(--border-primary);"
-		role="navigation"
-		aria-label="Main navigation"
-	>
-		<div class="flex items-center justify-between gap-3 px-5 h-14 border-b flex-shrink-0" style="border-color: var(--border-primary);">
-			<div class="flex items-center gap-3">
-				<div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold" style="background-color: var(--accent); color: #fff;" aria-hidden="true">N</div>
-				<span class="font-semibold text-sm">Nexbic</span>
-			</div>
-			<button onclick={closeSidebar} class="lg:hidden p-1 rounded hover:bg-[var(--bg-hover)]" style="color: var(--text-secondary);" aria-label="Close sidebar">
-				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-			</button>
-		</div>
+<aside
+  class="sidebar"
+  class:-translate-x-full={!mobileOpen}
+  class:translate-x-0={mobileOpen}
+  class:collapsed={collapsed}
+  class:md:translate-x-0={true}
+>
+  <div class="flex items-center justify-between h-14 px-4 border-b shrink-0" style="border-color: var(--border);">
+    {#if !collapsed}
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0" style="background-color: var(--accent); color: #0f1117;">{APP_LOGO_LETTER}</div>
+        <span class="font-semibold text-sm truncate">{APP_NAME_SHORT}</span>
+      </div>
+    {:else}
+      <div class="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold mx-auto shrink-0" style="background-color: var(--accent); color: #0f1117;">{APP_LOGO_LETTER}</div>
+    {/if}
+    <button
+      onclick={() => collapsed = !collapsed}
+      class="hidden md:flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0 hover:bg-[var(--bg-hover)]"
+      style="color: var(--text-secondary);"
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" class:rotate-180={collapsed}>
+        <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
 
-		<nav class="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Sidebar">
-			<NavItem href="/" icon="◉" active={$page.url.pathname === '/'}>Dashboard</NavItem>
-			<NavItem href="/projects" icon="▦" active={$page.url.pathname.startsWith('/projects')}>Projects</NavItem>
-			<NavItem href="/api-keys" icon="🔑" active={$page.url.pathname === '/api-keys'}>API Keys</NavItem>
-			<NavItem href="/audit-logs" icon="☰" active={$page.url.pathname === '/audit-logs'}>Audit Logs</NavItem>
-			<NavItem href="/plans" icon="☆" active={$page.url.pathname === '/plans'}>Plans</NavItem>
-			<NavItem href="/settings" icon="⚙" active={$page.url.pathname === '/settings'}>Settings</NavItem>
-		</nav>
-	</aside>
+  <nav class="flex-1 overflow-y-auto p-2 space-y-0.5 scrollbar-hide">
+    {#each navItems as item}
+      <a
+        href={item.href}
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 hover:bg-[var(--bg-hover)]"
+        style="color: {isActive(item.href) ? 'var(--accent)' : 'var(--text-secondary)'}; background-color: {isActive(item.href) ? 'var(--accent-muted)' : 'transparent'};"
+      >
+        <span class="text-lg w-6 text-center shrink-0" aria-hidden="true">{item.icon}</span>
+        {#if !collapsed}
+          <span class="truncate">{item.label}</span>
+        {/if}
+      </a>
+    {/each}
+  </nav>
 
-	<div class="flex-1 flex flex-col overflow-hidden min-w-0">
-		<header class="flex items-center justify-between px-4 sm:px-6 flex-shrink-0 border-b" style="height: var(--topbar-height); background-color: var(--bg-secondary); border-color: var(--border-primary);">
-			<div class="flex items-center gap-3">
-				<button onclick={toggleSidebar} class="lg:hidden p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" style="color: var(--text-secondary);" aria-label="Toggle sidebar">
-					<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-				</button>
-				<button onclick={() => commandOpen = true} class="btn btn-ghost btn-sm flex items-center gap-2" style="color: var(--text-tertiary)" aria-label="Open command palette">
-					<span class="text-xs" aria-hidden="true">⌘K</span>
-					<span class="text-xs hidden sm:inline">Search...</span>
-				</button>
-			</div>
-			<div class="flex items-center gap-3">
-				<button onclick={logout} class="btn btn-ghost btn-sm">Logout</button>
-			</div>
-		</header>
+  <div class="p-2 border-t shrink-0" style="border-color: var(--border);">
+    <button
+      onclick={logout}
+      class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--bg-hover)]"
+      style="color: var(--text-secondary);"
+    >
+      <span class="text-lg w-6 text-center shrink-0">\u23FB</span>
+      {#if !collapsed}
+        <span>Logout</span>
+      {/if}
+    </button>
+  </div>
+</aside>
 
-		<main class="flex-1 overflow-y-auto p-4 sm:p-6" id="main-content" role="main">
-			{@render children()}
-		</main>
-	</div>
+<div class="flex flex-col min-h-screen" class:md:ml-[var(--sidebar-width)]={!collapsed} class:md:ml-16={collapsed}>
+  <header class="flex items-center justify-between h-14 px-4 md:px-6 border-b shrink-0 md:hidden" style="background-color: var(--bg-secondary); border-color: var(--border);">
+    <button
+      onclick={() => mobileOpen = true}
+      class="flex items-center justify-center w-10 h-10 rounded-xl transition-colors hover:bg-[var(--bg-hover)]"
+      style="color: var(--text-secondary);"
+      aria-label="Open sidebar"
+    >
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <span class="font-semibold text-sm">{APP_NAME_SHORT}</span>
+    <div class="w-10"></div>
+  </header>
+
+  <main class="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full" id="main-content" role="main">
+    {@render children()}
+  </main>
 </div>
-
-<CommandPalette open={commandOpen} onclose={() => commandOpen = false} />
