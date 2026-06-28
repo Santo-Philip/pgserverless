@@ -31,6 +31,25 @@ services:
         reservations:
           memory: 256M
 
+  caddy:
+    image: caddy:2.10
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data:/data
+      - ./config:/config
+      - ./logs:/var/log/caddy
+    networks:
+      - proxy
+      - internal
+    depends_on:
+      dashboard:
+        condition: service_healthy
+
   dashboard:
     build:
       context: .
@@ -39,6 +58,7 @@ services:
     restart: unless-stopped
     networks:
       - internal
+      - proxy
     ports:
       - "${SERVER_PORT:-2121}:2121"
     depends_on:
@@ -75,6 +95,8 @@ services:
 networks:
   internal:
     driver: bridge
+  proxy:
+    external: true
 
 volumes:
   postgres_data:
