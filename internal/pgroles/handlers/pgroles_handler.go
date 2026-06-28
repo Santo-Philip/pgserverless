@@ -348,11 +348,6 @@ func (h *PgRolesHandler) RemoveMember(c *fiber.Ctx) error {
 }
 
 func (h *PgRolesHandler) ListDatabasePrivileges(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return response.BadRequest(c, "role name is required")
-	}
-
 	databaseName := c.Query("database")
 	if databaseName == "" {
 		return response.BadRequest(c, "database query parameter is required")
@@ -367,11 +362,6 @@ func (h *PgRolesHandler) ListDatabasePrivileges(c *fiber.Ctx) error {
 }
 
 func (h *PgRolesHandler) ListSchemaPrivileges(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return response.BadRequest(c, "role name is required")
-	}
-
 	schemaName := c.Query("schema")
 	if schemaName == "" {
 		return response.BadRequest(c, "schema query parameter is required")
@@ -386,11 +376,6 @@ func (h *PgRolesHandler) ListSchemaPrivileges(c *fiber.Ctx) error {
 }
 
 func (h *PgRolesHandler) ListTablePrivileges(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return response.BadRequest(c, "role name is required")
-	}
-
 	schemaName := c.Query("schema")
 	tableName := c.Query("table")
 

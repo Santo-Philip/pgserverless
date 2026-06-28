@@ -40,7 +40,7 @@ services:
     networks:
       - internal
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${SERVER_PORT:-2121}:2121"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,12 +55,12 @@ services:
       APP_NAME: ${APP_NAME:-Nexbic PG Admin}
       PUBLIC_APP_NAME: ${PUBLIC_APP_NAME:-Nexbic PG Admin}
       PUBLIC_APP_NAME_SHORT: ${PUBLIC_APP_NAME_SHORT:-Nexbic}
-      SERVER_PORT: "8080"
+      SERVER_PORT: "2121"
       BACKUP_DIR: /data/backups
     volumes:
       - backup_data:/data/backups
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:2121/health"]
       interval: 15s
       timeout: 5s
       retries: 3

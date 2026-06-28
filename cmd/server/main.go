@@ -154,7 +154,7 @@ func main() {
 		})
 	})
 
-	api := f.Group("/api")
+	api := f.Group("/api/v1")
 
 	authRoutes.RegisterAuthRoutes(api, authHandler, authMW)
 	auditRoutes.RegisterAuditRoutes(api, auditHandler, authMW)

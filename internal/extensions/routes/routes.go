@@ -7,7 +7,8 @@ import (
 )
 
 func RegisterExtensionRoutes(router fiber.Router, handler *handlers.ExtensionsHandler, authMW *middleware.AuthMiddleware) {
-	router.Get("/extensions", authMW.RequireAuth(), handler.List)
-	router.Post("/extensions/install", authMW.RequireAuth(), handler.Install)
-	router.Post("/extensions/uninstall", authMW.RequireAuth(), handler.Uninstall)
+	g := router.Group("/extensions", authMW.RequireAuth())
+	g.Get("/", handler.List)
+	g.Post("/", handler.Install)
+	g.Delete("/:name", handler.Uninstall)
 }

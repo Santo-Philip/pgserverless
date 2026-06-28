@@ -24,8 +24,8 @@ func RegisterPgRolesRoutes(router fiber.Router, handler *handlers.PgRolesHandler
 	roles.Post("/:name/add-member", handler.AddMember)
 	roles.Post("/:name/remove-member", handler.RemoveMember)
 
-	roles.Get("/:name/privileges/databases", handler.ListDatabasePrivileges)
-	roles.Get("/:name/privileges/schemas", handler.ListSchemaPrivileges)
-	roles.Get("/:name/privileges/tables", handler.ListTablePrivileges)
+	roles.Get("/privileges/databases", handler.ListDatabasePrivileges)
+	roles.Get("/privileges/schemas", handler.ListSchemaPrivileges)
+	roles.Get("/privileges/tables", handler.ListTablePrivileges)
 	roles.Get("/:name/members", handler.GetRoleMembers)
 }

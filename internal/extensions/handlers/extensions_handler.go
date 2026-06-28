@@ -41,20 +41,13 @@ func (h *ExtensionsHandler) Install(c *fiber.Ctx) error {
 	return response.OK(c, fiber.Map{"extension": req.Name, "version": req.Version})
 }
 
-type uninstallRequest struct {
-	Name string `json:"name"`
-}
-
 func (h *ExtensionsHandler) Uninstall(c *fiber.Ctx) error {
-	var req uninstallRequest
-	if err := c.BodyParser(&req); err != nil {
-		return response.BadRequest(c, "invalid request body")
-	}
-	if req.Name == "" {
+	name := c.Params("name")
+	if name == "" {
 		return response.BadRequest(c, "name is required")
 	}
-	if err := h.svc.UninstallExtension(c.Context(), req.Name); err != nil {
+	if err := h.svc.UninstallExtension(c.Context(), name); err != nil {
 		return response.BadRequest(c, "uninstall failed: "+err.Error())
 	}
-	return response.OK(c, fiber.Map{"extension": req.Name})
+	return response.OK(c, fiber.Map{"extension": name})
 }

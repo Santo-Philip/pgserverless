@@ -6,10 +6,10 @@ import (
 )
 
 func RegisterSchemaRoutes(router fiber.Router, handler *handlers.SchemaHandler) {
-	g := router.Group("/schema")
+	g := router.Group("/schemas")
 
-	g.Post("/schemas", handler.CreateSchema)
-	g.Delete("/schemas/:schema", handler.DropSchema)
+	g.Post("/", handler.CreateSchema)
+	g.Delete("/:schema", handler.DropSchema)
 
 	g.Post("/:schema/tables", handler.CreateTable)
 	g.Delete("/:schema/tables/:table", handler.DropTable)
