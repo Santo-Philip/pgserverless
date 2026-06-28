@@ -170,9 +170,9 @@ func main() {
 	logsRoutes.RegisterLogsRoutes(api, logsHandler, authMW)
 
 	// Serve SvelteKit frontend if build directory exists
-	if _, err := os.Stat("../dashboard/build"); err == nil {
+	if _, err := os.Stat("./dashboard/build"); err == nil {
 		f.Use("/", filesystem.New(filesystem.Config{
-			Root:         http.Dir("../dashboard/build"),
+			Root:         http.Dir("./dashboard/build"),
 			Index:        "index.html",
 			NotFoundFile: "index.html",
 		}))
