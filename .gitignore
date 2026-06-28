@@ -4,8 +4,8 @@
 # PostgreSQL data
 postgres/data/
 
-# Backups
-backups/
+# Backups (top-level backup data directory only)
+/backups/
 *.sql.gz
 
 # Go build artifacts
