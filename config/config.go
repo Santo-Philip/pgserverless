@@ -97,9 +97,9 @@ func parseDatabaseURL(cfg *Config) {
 	}
 	cfg.Database.Host = getEnv("DB_HOST", "localhost")
 	cfg.Database.Port = getEnvInt("DB_PORT", 5432)
-	cfg.Database.User = getEnv("DB_USER", "api_admin")
-	cfg.Database.Password = "postgres"
-	cfg.Database.DBName = getEnv("DB_NAME", "postgres_api")
+	cfg.Database.User = getEnv("DB_USER", "pgadmin")
+	cfg.Database.Password = getEnv("DB_PASSWORD", "postgres")
+	cfg.Database.DBName = getEnv("DB_NAME", "nexbic_admin")
 	cfg.Database.SSLMode = getEnv("DB_SSLMODE", "disable")
 	cfg.Database.MaxConns = getEnvInt("DB_MAX_CONNS", 20)
 	cfg.Database.MinConns = getEnvInt("DB_MIN_CONNS", 2)
