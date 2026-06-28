@@ -1,6 +1,8 @@
 <script lang="ts">
   import { login } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import { APP_NAME, APP_LOGO_LETTER } from '$lib/config/brand';
 
   let email = $state('');
@@ -8,13 +10,19 @@
   let error = $state('');
   let loading = $state(false);
 
+  onMount(() => {
+    if ($page.url.searchParams.get('from') !== 'doubletap') {
+      goto('/');
+    }
+  });
+
   async function handleSubmit(e: Event) {
     e.preventDefault();
     error = '';
     loading = true;
     try {
       await login(email, password);
-      goto('/');
+      goto('/dashboard');
     } catch (e) {
       error = e instanceof Error ? e.message : 'Login failed';
     } finally {

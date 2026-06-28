@@ -9,7 +9,7 @@
 	let selectedIndex = $state(0);
 
 	const pages = [
-		{ label: 'Dashboard', href: '/', category: 'Pages' },
+		{ label: 'Dashboard', href: '/dashboard', category: 'Pages' },
 		{ label: 'Applications', href: '/apps', category: 'Pages' },
 		{ label: 'Database', href: '/database', category: 'Pages' },
 		{ label: 'API Keys', href: '/api-keys', category: 'Pages' },

@@ -20,6 +20,21 @@
     --bottomnav-height: 64px;
   }
 
+  [data-theme="light"] {
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-hover: #e8eaed;
+    --border: #dadce0;
+    --text-primary: #202124;
+    --text-secondary: #5f6368;
+    --accent: #1a73e8;
+    --accent-muted: rgba(26, 115, 232, 0.10);
+    --danger: #d93025;
+    --success: #1e8e3e;
+    --warning: #f9ab00;
+  }
+
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;

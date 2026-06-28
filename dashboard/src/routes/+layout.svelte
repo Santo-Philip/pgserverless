@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../app.css';
-  import Sidebar from '$lib/components/Sidebar.svelte';
+  import Topbar from '$lib/components/Topbar.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { isAuthenticated } from '$lib/stores/auth';
@@ -11,10 +11,13 @@
   let { children } = $props();
   let authChecked = $state(false);
 
+  const publicPaths = ['/login', '/'];
+
   $effect(() => {
     if (!authChecked) {
-      if (!$isAuthenticated && !$page.url.pathname.startsWith('/login')) {
-        goto('/login');
+      if (!$isAuthenticated && !publicPaths.includes($page.url.pathname)) {
+        sessionStorage.setItem('login_origin', 'theme_doubletap');
+        goto('/login?from=doubletap');
       }
       authChecked = true;
     }
@@ -27,13 +30,16 @@
   </div>
 {/if}
 
-{#if $isAuthenticated}
-  <Sidebar>
-    <div class="pb-16 lg:pb-0 min-h-screen" style="background-color: var(--bg-primary);">
+{#if $isAuthenticated || $page.url.pathname === '/'}
+  <Topbar />
+  <div class="pt-14 min-h-screen" style="background-color: var(--bg-primary);">
+    <div class="pb-16 lg:pb-0">
       {@render children()}
     </div>
-  </Sidebar>
-  <BottomNav />
+  </div>
+  {#if $isAuthenticated}
+    <BottomNav />
+  {/if}
   <Toast />
 {:else if $page.url.pathname.startsWith('/login')}
   {@render children()}

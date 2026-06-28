@@ -4,7 +4,7 @@
   type NavItem = { label: string; href: string; icon: string };
 
   const items: NavItem[] = [
-    { label: 'Dashboard', href: '/', icon: '\u25C9' },
+    { label: 'Dashboard', href: '/dashboard', icon: '\u25C9' },
     { label: 'Explorer', href: '/explorer', icon: '\u25C8' },
     { label: 'SQL', href: '/sql', icon: '\u2328' },
     { label: 'Monitoring', href: '/monitoring', icon: '\u25CE' },
