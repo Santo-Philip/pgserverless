@@ -7,6 +7,18 @@ import (
 )
 
 func RegisterAuthRoutes(router fiber.Router, handler *handlers.AuthHandler, authMW *middleware.AuthMiddleware) {
+	RegisterDashboardAuthRoutes(router, handler, authMW)
+
+	// Public-only endpoints (not registered in dashboard)
+	router.Post("/auth/register", handler.Register)
+	router.Post("/auth/forgot-password", handler.ForgotPassword)
+	router.Post("/auth/reset-password", handler.ResetPassword)
+	router.Post("/auth/verify-email", handler.VerifyEmail)
+	router.Post("/auth/verify-email/send", authMW.RequireAuth(), handler.SendVerification)
+}
+
+// RegisterDashboardAuthRoutes registers only the auth endpoints appropriate for the internal dashboard.
+func RegisterDashboardAuthRoutes(router fiber.Router, handler *handlers.AuthHandler, authMW *middleware.AuthMiddleware) {
 	// Public
 	router.Post("/auth/login", handler.Login)
 	router.Post("/auth/register", handler.Register)
