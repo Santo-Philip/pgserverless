@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
@@ -65,8 +66,12 @@ func AuditLog(action AuditAction, resource string) fiber.Handler {
 	}
 }
 
-func AuditEntry(db *database.DB, actorID uuid.UUID, action AuditAction, resource, resourceID, ip, userAgent string) {
-	_, err := db.Pool.Exec(nil, `
+func AuditEntry(ctx context.Context, db *database.DB, actorID uuid.UUID, action AuditAction, resource, resourceID, ip, userAgent string) {
+	if db == nil {
+		slog.Warn("audit entry skipped: nil db")
+		return
+	}
+	_, err := db.Pool.Exec(ctx, `
 		INSERT INTO audit_logs (actor_id, action, resource, resource_id, ip_address, user_agent)
 		VALUES ($1, $2, $3, $4, $5, $6)`,
 		actorID, string(action), resource, resourceID, ip, userAgent,

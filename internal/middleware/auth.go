@@ -1,49 +1,76 @@
 package middleware
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nexbic/platform/config"
 	"github.com/nexbic/platform/pkg/response"
 )
 
 type AuthMiddleware struct {
 	cfg config.JWTConfig
+	pool *pgxpool.Pool
 }
 
-func NewAuthMiddleware(cfg config.JWTConfig) *AuthMiddleware {
-	return &AuthMiddleware{cfg: cfg}
+func NewAuthMiddleware(cfg config.JWTConfig, pool *pgxpool.Pool) *AuthMiddleware {
+	return &AuthMiddleware{cfg: cfg, pool: pool}
 }
 
 func (m *AuthMiddleware) RequireAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Try JWT first
 		tokenString, err := extractToken(c)
-		if err != nil {
-			return response.Unauthorized(c, "missing or malformed authorization header")
+		if err == nil {
+			claims, err := m.verifyToken(tokenString)
+			if err == nil {
+				sub, _ := claims.GetSubject()
+				uid, err := uuid.Parse(sub)
+				if err == nil {
+					email, _ := claims["email"].(string)
+					role, _ := claims["role"].(string)
+					c.Locals("user_id", uid)
+					c.Locals("email", email)
+					c.Locals("role", role)
+					return c.Next()
+				}
+			}
 		}
 
-		claims, err := m.verifyToken(tokenString)
-		if err != nil {
-			return response.Unauthorized(c, "invalid or expired token")
+		// Fallback: try API key via X-API-Key header
+		apiKey := c.Get("X-API-Key")
+		if apiKey == "" {
+			// Also check Authorization: Bearer nxc_*
+			if tokenString != "" && strings.HasPrefix(tokenString, "nxc_") {
+				apiKey = tokenString
+			}
 		}
 
-		sub, _ := claims.GetSubject()
-		uid, err := uuid.Parse(sub)
-		if err != nil {
-			return response.Unauthorized(c, "invalid token payload")
+		if apiKey != "" && m.pool != nil {
+			hash := sha256.Sum256([]byte(apiKey))
+			hashStr := hex.EncodeToString(hash[:])
+
+			var userID uuid.UUID
+			err := m.pool.QueryRow(context.Background(), `
+				SELECT user_id FROM api_keys
+				WHERE hash = $1 AND status = 'active'
+				AND (expires_at IS NULL OR expires_at > NOW())`, hashStr).Scan(&userID)
+			if err == nil {
+				var role string
+				m.pool.QueryRow(context.Background(), `SELECT role FROM users WHERE id = $1`, userID).Scan(&role)
+				c.Locals("user_id", userID)
+				c.Locals("role", role)
+				return c.Next()
+			}
 		}
 
-		email, _ := claims["email"].(string)
-		role, _ := claims["role"].(string)
-
-		c.Locals("user_id", uid)
-		c.Locals("email", email)
-		c.Locals("role", role)
-
-		return c.Next()
+		return response.Unauthorized(c, "missing or invalid credentials")
 	}
 }
 

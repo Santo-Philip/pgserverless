@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/nexbic/platform/internal/tables/models"
 	"github.com/nexbic/platform/pkg/database"
+	"github.com/nexbic/platform/pkg/helpers"
 )
 
 type TablesService struct {
@@ -18,16 +19,8 @@ func NewTablesService(db *database.DB) *TablesService {
 	return &TablesService{db: db}
 }
 
-func quoteIdent(parts ...string) string {
-	quoted := make([]string, len(parts))
-	for i, p := range parts {
-		quoted[i] = `"` + strings.ReplaceAll(p, `"`, `""`) + `"`
-	}
-	return strings.Join(quoted, ".")
-}
-
 func buildFilterClause(f models.Filter, startIdx int) (string, []any, int, error) {
-	col := quoteIdent(f.Column)
+	col := helpers.QuoteIdent(f.Column)
 	idx := startIdx
 
 	switch f.Operator {
@@ -88,7 +81,7 @@ func (s *TablesService) QueryTable(ctx context.Context, schema, table string, li
 		whereSQL = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", quoteIdent(schema, table), whereSQL)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", helpers.QuoteIdent(schema, table), whereSQL)
 	var total int
 	if err := s.db.Pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count query: %w", err)
@@ -100,11 +93,11 @@ func (s *TablesService) QueryTable(ctx context.Context, schema, table string, li
 		if strings.EqualFold(order, "desc") {
 			dir = "DESC"
 		}
-		orderClause = fmt.Sprintf(" ORDER BY %s %s", quoteIdent(sort), dir)
+		orderClause = fmt.Sprintf(" ORDER BY %s %s", helpers.QuoteIdent(sort), dir)
 	}
 
 	dataQuery := fmt.Sprintf("SELECT * FROM %s%s%s LIMIT $%d OFFSET $%d",
-		quoteIdent(schema, table), whereSQL, orderClause, argIdx, argIdx+1)
+		helpers.QuoteIdent(schema, table), whereSQL, orderClause, argIdx, argIdx+1)
 
 	args = append(args, limit, offset)
 	rows, err := s.db.Pool.Query(ctx, dataQuery, args...)
@@ -127,14 +120,14 @@ func (s *TablesService) InsertRow(ctx context.Context, schema, table string, dat
 	placeholders := make([]string, 0, len(data))
 	i := 1
 	for k, v := range data {
-		cols = append(cols, quoteIdent(k))
+		cols = append(cols, helpers.QuoteIdent(k))
 		vals = append(vals, v)
 		placeholders = append(placeholders, fmt.Sprintf("$%d", i))
 		i++
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING *",
-		quoteIdent(schema, table),
+		helpers.QuoteIdent(schema, table),
 		strings.Join(cols, ", "),
 		strings.Join(placeholders, ", "))
 
@@ -165,20 +158,20 @@ func (s *TablesService) UpdateRow(ctx context.Context, schema, table string, dat
 	args := make([]any, 0, len(data)+len(where))
 	i := 1
 	for k, v := range data {
-		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", quoteIdent(k), i))
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", helpers.QuoteIdent(k), i))
 		args = append(args, v)
 		i++
 	}
 
 	whereClauses := make([]string, 0, len(where))
 	for k, v := range where {
-		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", quoteIdent(k), i))
+		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", helpers.QuoteIdent(k), i))
 		args = append(args, v)
 		i++
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s RETURNING *",
-		quoteIdent(schema, table),
+		helpers.QuoteIdent(schema, table),
 		strings.Join(setClauses, ", "),
 		strings.Join(whereClauses, " AND "))
 
@@ -201,13 +194,13 @@ func (s *TablesService) DeleteRow(ctx context.Context, schema, table string, whe
 	whereClauses := make([]string, 0, len(where))
 	i := 1
 	for k, v := range where {
-		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", quoteIdent(k), i))
+		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", helpers.QuoteIdent(k), i))
 		args = append(args, v)
 		i++
 	}
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s",
-		quoteIdent(schema, table),
+		helpers.QuoteIdent(schema, table),
 		strings.Join(whereClauses, " AND "))
 
 	ct, err := s.db.Pool.Exec(ctx, query, args...)
@@ -255,11 +248,11 @@ func (s *TablesService) BulkInsert(ctx context.Context, schema, table string, ro
 
 			quotedCols := make([]string, len(allCols))
 			for j, col := range allCols {
-				quotedCols[j] = quoteIdent(col)
+				quotedCols[j] = helpers.QuoteIdent(col)
 			}
 
 			query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING *",
-				quoteIdent(schema, table),
+				helpers.QuoteIdent(schema, table),
 				strings.Join(quotedCols, ", "),
 				strings.Join(placeholders, ", "))
 
@@ -307,8 +300,8 @@ func (s *TablesService) BulkDelete(ctx context.Context, schema, table string, id
 	}
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s IN (%s)",
-		quoteIdent(schema, table),
-		quoteIdent(idColumn),
+		helpers.QuoteIdent(schema, table),
+		helpers.QuoteIdent(idColumn),
 		strings.Join(placeholders, ", "))
 
 	ct, err := s.db.Pool.Exec(ctx, query, args...)
@@ -334,7 +327,7 @@ func (s *TablesService) CountRows(ctx context.Context, schema, table string, fil
 		argIdx = nextIdx
 	}
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteIdent(schema, table))
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", helpers.QuoteIdent(schema, table))
 	if len(whereClauses) > 0 {
 		query += " WHERE " + strings.Join(whereClauses, " AND ")
 	}
@@ -390,13 +383,13 @@ func (s *TablesService) SearchTable(ctx context.Context, schema, table, search s
 	likeClauses := make([]string, len(columns))
 	args := make([]any, len(columns)+1)
 	for i, col := range columns {
-		likeClauses[i] = fmt.Sprintf("%s::text ILIKE $%d", quoteIdent(col), i+1)
+		likeClauses[i] = fmt.Sprintf("%s::text ILIKE $%d", helpers.QuoteIdent(col), i+1)
 		args[i] = "%" + search + "%"
 	}
 	args[len(columns)] = limit
 
 	query := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT $%d",
-		quoteIdent(schema, table),
+		helpers.QuoteIdent(schema, table),
 		strings.Join(likeClauses, " OR "),
 		len(columns)+1)
 

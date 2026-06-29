@@ -9,12 +9,72 @@ func ValidateLogin(req *dto.LoginRequest) *validator.Validator {
 	v := validator.New()
 	v.Required("email", req.Email)
 	v.Required("password", req.Password)
+	v.Email("email", req.Email)
 	return v
 }
 
 func ValidateRefreshToken(req *dto.RefreshTokenRequest) *validator.Validator {
 	v := validator.New()
 	v.Required("refresh_token", req.RefreshToken)
+	return v
+}
+
+func ValidateRegister(req *dto.RegisterRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("email", req.Email)
+	v.Required("password", req.Password)
+	v.Email("email", req.Email)
+	v.MinLength("password", req.Password, 8)
+	v.MaxLength("password", req.Password, 128)
+	v.MaxLength("name", req.Name, 255)
+	return v
+}
+
+func ValidateVerifyEmail(req *dto.VerifyEmailRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("token", req.Token)
+	return v
+}
+
+func ValidateForgotPassword(req *dto.ForgotPasswordRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("email", req.Email)
+	v.Email("email", req.Email)
+	return v
+}
+
+func ValidateResetPassword(req *dto.ResetPasswordRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("token", req.Token)
+	v.Required("password", req.Password)
+	v.MinLength("password", req.Password, 8)
+	v.MaxLength("password", req.Password, 128)
+	return v
+}
+
+func ValidateVerifyTOTP(req *dto.VerifyTOTPRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("code", req.Code)
+	return v
+}
+
+func ValidateDisableTOTP(req *dto.DisableTOTPRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("code", req.Code)
+	return v
+}
+
+func ValidateCompleteTOTPLogin(req *dto.CompleteTOTPLoginRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("session_token", req.SessionToken)
+	v.Required("totp_code", req.TOTPCode)
+	return v
+}
+
+func ValidateCreateAPIKey(req *dto.CreateAPIKeyRequest) *validator.Validator {
+	v := validator.New()
+	v.Required("name", req.Name)
+	v.MaxLength("name", req.Name, 255)
 	return v
 }
 

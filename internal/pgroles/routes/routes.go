@@ -3,10 +3,11 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/nexbic/platform/internal/pgroles/handlers"
+	"github.com/nexbic/platform/internal/middleware"
 )
 
-func RegisterPgRolesRoutes(router fiber.Router, handler *handlers.PgRolesHandler) {
-	roles := router.Group("/roles")
+func RegisterPgRolesRoutes(router fiber.Router, handler *handlers.PgRolesHandler, authMW *middleware.AuthMiddleware) {
+	roles := router.Group("/roles", authMW.RequireAuth(), authMW.RequireRole("super_admin", "dba"))
 
 	roles.Get("/", handler.ListRoles)
 	roles.Post("/", handler.CreateRole)

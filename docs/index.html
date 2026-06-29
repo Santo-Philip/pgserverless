@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexbic Platform — API Documentation</title>
+<style>
+  :root {
+    --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+    --fg: #e2e8f0; --fg2: #94a3b8;
+    --accent: #38bdf8; --accent2: #0ea5e9;
+    --border: #334155;
+    --get: #22d3ee; --post: #4ade80; --patch: #fbbf24; --delete: #f87171;
+    --code-bg: #1e293b;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --bg2: #f1f5f9; --bg3: #e2e8f0;
+    --fg: #0f172a; --fg2: #475569;
+    --accent: #0284c7; --accent2: #0369a1;
+    --border: #cbd5e1;
+    --code-bg: #f1f5f9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--fg);
+    line-height: 1.6;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Topbar */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 700; cursor: pointer;
+    color: var(--fg); user-select: none;
+  }
+  .topbar-brand svg { width: 28px; height: 28px; }
+  .topbar-nav { display: flex; align-items: center; gap: 6px; }
+  .topbar-nav a {
+    padding: 6px 14px; border-radius: 6px;
+    font-size: 14px; color: var(--fg2); transition: all .15s;
+  }
+  .topbar-nav a:hover, .topbar-nav a.active {
+    background: var(--bg3); color: var(--fg); text-decoration: none;
+  }
+
+  .theme-btn {
+    background: none; border: 1px solid var(--border); color: var(--fg2);
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: all .15s;
+  }
+  .theme-btn:hover { background: var(--bg3); color: var(--fg); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--accent2); color: #fff;
+    padding: 10px 20px; border-radius: 8px; font-size: 14px;
+    opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Layout */
+  .layout { display: flex; max-width: 1400px; margin: 0 auto; }
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    padding: 24px 16px; position: sticky; top: 56px; height: calc(100vh - 56px);
+    overflow-y: auto; border-right: 1px solid var(--border);
+  }
+  .sidebar h3 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--fg2); margin: 20px 0 8px 12px;
+  }
+  .sidebar a {
+    display: block; padding: 6px 12px; border-radius: 6px;
+    font-size: 14px; color: var(--fg2); transition: all .1s;
+  }
+  .sidebar a:hover, .sidebar a.active {
+    background: var(--bg3); color: var(--fg); text-decoration: none;
+  }
+  .content { flex: 1; padding: 32px 40px 80px; min-width: 0; }
+
+  h1 { font-size: 32px; margin-bottom: 8px; }
+  h2 {
+    font-size: 24px; margin: 40px 0 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 18px; margin: 24px 0 12px; }
+  p, .desc { color: var(--fg2); margin-bottom: 16px; }
+
+  .endpoint {
+    margin: 12px 0; border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; transition: border-color .15s;
+  }
+  .endpoint:hover { border-color: var(--accent); }
+  .endpoint-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; cursor: pointer;
+    background: var(--bg2);
+  }
+  .method {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    min-width: 52px; text-align: center;
+  }
+  .get { background: var(--get); color: #0c4a6e; }
+  .post { background: var(--post); color: #14532d; }
+  .patch { background: var(--patch); color: #713f12; }
+  .delete { background: var(--delete); color: #7f1d1d; }
+  .path { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 14px; word-break: break-all; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: var(--bg3); color: var(--fg2); margin-left: auto;
+  }
+  .badge.auth { background: #1e3a5f; color: #7dd3fc; }
+  .badge.admin { background: #3b1f3b; color: #d8b4fe; }
+
+  .endpoint-body {
+    display: none; padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .endpoint.open .endpoint-body { display: block; }
+
+  pre {
+    background: var(--code-bg); padding: 12px 16px; border-radius: 8px;
+    overflow-x: auto; font-size: 13px; margin: 8px 0;
+    border: 1px solid var(--border);
+  }
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+    font-size: 14px;
+  }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--fg2); font-size: 12px; text-transform: uppercase; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .content { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand" id="brand" title="Double-tap to sign in">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+    </svg>
+    Nexbic
+  </div>
+  <div class="topbar-nav">
+    <a href="#overview" class="active">Overview</a>
+    <a href="#auth">Auth</a>
+    <a href="#storage">Storage</a>
+    <a href="#explorer">Explorer</a>
+    <a href="#admin">Admin</a>
+    <button class="theme-btn" id="themeToggle" title="Toggle theme">🌙</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="content" id="content"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DOCS = {
+  sections: [
+    {
+      id: "overview", title: "Overview",
+      content: `
+        <h1>Nexbic Platform API</h1>
+        <p>RESTful API for PostgreSQL database administration, authentication, and storage management.</p>
+        <p>Base URL: <code>/v1</code></p>
+        <p>All resources are organized under <strong>projects</strong>. Each project is a sandboxed environment with its own schemas, tables, roles, monitoring, backups, logs, and storage. Authentication and audit logs are independent of projects.</p>
+        <p>All authenticated endpoints require a JWT bearer token (<code>Authorization: Bearer &lt;token&gt;</code>) or an API key (<code>X-API-Key: nxc_&lt;key&gt;</code>).</p>
+        <h3>Authentication</h3>
+        <table>
+          <tr><th>Method</th><th>Description</th></tr>
+          <tr><td>JWT Access Token</td><td>15-minute expiry, sent as <code>Authorization: Bearer &lt;token&gt;</code></td></tr>
+          <tr><td>JWT Refresh Token</td><td>7-day expiry, used to rotate access tokens</td></tr>
+          <tr><td>API Key</td><td>Persistent keys with <code>nxc_</code> prefix, sent as <code>X-API-Key</code> header</td></tr>
+        </table>
+        <h3>Response Format</h3>
+        <pre>{
+  "message": "success",
+  "data": { ... }
+}</pre>
+        <p>Error responses use <code>{ "code": "error_code", "message": "..." }</code>.</p>
+      `
+    },
+    {
+      id: "auth", title: "Authentication",
+      info: "Independent of projects — no projectId required.",
+      endpoints: [
+        { m: "POST", p: "/auth/register", d: "Create a new user account", auth: false, body: { email: "string", password: "string", name: "string" } },
+        { m: "POST", p: "/auth/login", d: "Sign in. If TOTP enabled, include <code>totp_code</code> or get <code>totp_code_required</code> error", auth: false, body: { email: "string", password: "string", totp_code: "string?" } },
+        { m: "POST", p: "/auth/refresh", d: "Refresh access token using refresh token", auth: false, body: { refresh_token: "string" } },
+        { m: "POST", p: "/auth/forgot-password", d: "Request password reset (returns reset token in dev)", auth: false, body: { email: "string" } },
+        { m: "POST", p: "/auth/reset-password", d: "Complete password reset with token", auth: false, body: { token: "string", password: "string" } },
+        { m: "POST", p: "/auth/verify-email", d: "Verify email with token", auth: false, body: { token: "string" } },
+        { m: "GET", p: "/auth/me", d: "Get current user profile", auth: true },
+        { m: "PATCH", p: "/auth/password", d: "Update own password", auth: true, body: { current_password: "string", new_password: "string" } },
+        { m: "POST", p: "/auth/verify-email/send", d: "Request email verification token", auth: true },
+        { m: "POST", p: "/auth/totp/enable", d: "Generate TOTP secret and QR URL", auth: true },
+        { m: "POST", p: "/auth/totp/verify", d: "Confirm TOTP setup (returns recovery codes)", auth: true, body: { code: "string" } },
+        { m: "POST", p: "/auth/totp/disable", d: "Disable TOTP", auth: true, body: { code: "string" } },
+        { m: "GET", p: "/auth/devices", d: "List connected devices", auth: true },
+        { m: "DELETE", p: "/auth/devices/:id", d: "Revoke a device", auth: true },
+        { m: "GET", p: "/auth/security-events", d: "List security events (paginated)", auth: true },
+        { m: "GET", p: "/auth/api-keys", d: "List API keys", auth: true },
+        { m: "POST", p: "/auth/api-keys", d: "Create API key", auth: true, body: { name: "string", expires_at: "ISO8601?" } },
+        { m: "DELETE", p: "/auth/api-keys/:id", d: "Revoke API key", auth: true },
+      ]
+    },
+    {
+      id: "projects", title: "Projects",
+      info: "CRUD for project management. Each project is a sandboxed environment.",
+      endpoints: [
+        { m: "GET", p: "/projects", d: "List your projects", auth: true },
+        { m: "POST", p: "/projects", d: "Create a new project", auth: true, body: { name: "string", slug: "string?", description: "string?" } },
+        { m: "GET", p: "/projects/:projectId", d: "Get project details", auth: true },
+        { m: "PATCH", p: "/projects/:projectId", d: "Update project", auth: true, body: { name: "string?", slug: "string?", description: "string?" } },
+        { m: "DELETE", p: "/projects/:projectId", d: "Delete project", auth: true },
+      ]
+    },
+    {
+      id: "storage", title: "Storage",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/storage/providers", d: "List storage providers", auth: true },
+        { m: "POST", p: "/projects/:projectId/storage/providers", d: "Create provider", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/storage/providers/:id", d: "Get provider details", auth: true },
+        { m: "PATCH", p: "/projects/:projectId/storage/providers/:id", d: "Update provider", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/storage/providers/:id", d: "Delete provider", auth: "super_admin" },
+        { m: "GET", p: "/projects/:projectId/storage/providers/:provider_id/buckets", d: "List buckets", auth: true },
+        { m: "POST", p: "/projects/:projectId/storage/buckets", d: "Create bucket", auth: true },
+        { m: "GET", p: "/projects/:projectId/storage/buckets/:id", d: "Get bucket details", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/storage/buckets/:id", d: "Delete bucket", auth: true },
+        { m: "POST", p: "/projects/:projectId/storage/buckets/:bucket_id/files", d: "Upload file (multipart)", auth: true },
+        { m: "GET", p: "/projects/:projectId/storage/buckets/:bucket_id/files", d: "List files (paginated)", auth: true },
+        { m: "GET", p: "/projects/:projectId/storage/files/:id", d: "Get file metadata", auth: true },
+        { m: "GET", p: "/projects/:projectId/storage/files/:id/download", d: "Download file", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/storage/files/:id", d: "Delete file", auth: true },
+      ]
+    },
+    {
+      id: "explorer", title: "Database Explorer",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/explorer/schemas", d: "List database schemas", auth: true },
+        { m: "GET", p: "/projects/:projectId/explorer/schemas/:schema/:resource", d: "List resources (tables, views, functions, procedures, triggers, indexes, constraints, sequences, materialized-views)", auth: true },
+        { m: "GET", p: "/projects/:projectId/explorer/schemas/:schema/tables/:table", d: "Get full table details (columns, constraints, indexes, triggers)", auth: true },
+        { m: "GET", p: "/projects/:projectId/explorer/extensions", d: "List available extensions", auth: true },
+        { m: "GET", p: "/projects/:projectId/dashboard/overview", d: "Platform statistics overview", auth: "admin" },
+      ]
+    },
+    {
+      id: "pgrest", title: "Auto-Generated CRUD",
+      content: `
+        <p>PostgREST-style auto-generated RESTful CRUD endpoints for all user tables and views. Routes are discovered from <code>information_schema</code> at startup and validated per-request. Scoped under <code>/projects/:projectId</code>.</p>
+        <h3>Query Parameters</h3>
+        <table>
+          <tr><th>Param</th><th>Example</th><th>Description</th></tr>
+          <tr><td><code>col.eq=value</td><td><code>name.eq=John</code></td><td>Equal</td></tr>
+          <tr><td><code>col.neq=value</td><td><code>status.neq=inactive</code></td><td>Not equal</td></tr>
+          <tr><td><code>col.gt=value</td><td><code>age.gt=18</code></td><td>Greater than</td></tr>
+          <tr><td><code>col.gte=value</td><td><code>age.gte=18</code></td><td>Greater than or equal</td></tr>
+          <tr><td><code>col.lt=value</td><td><code>price.lt=100</code></td><td>Less than</td></tr>
+          <tr><td><code>col.lte=value</td><td><code>price.lte=100</code></td><td>Less than or equal</td></tr>
+          <tr><td><code>col.like=pattern</td><td><code>name.like=%John%</code></td><td>LIKE</td></tr>
+          <tr><td><code>col.ilike=pattern</td><td><code>name.ilike=%john%</code></td><td>ILIKE (case-insensitive)</td></tr>
+          <tr><td><code>col.in=val1,val2</td><td><code>id.in=1,2,3</code></td><td>IN list</td></tr>
+          <tr><td><code>col.is=null</td><td><code>deleted_at.is=null</code></td><td>IS NULL</td></tr>
+          <tr><td><code>col.isnot=null</td><td><code>email.isnot=null</code></td><td>IS NOT NULL</td></tr>
+        </table>
+        <h3>Sort &amp; Pagination</h3>
+        <table>
+          <tr><th>Param</th><th>Example</th><th>Description</th></tr>
+          <tr><td><code>order</code></td><td><code>order=created_at.desc</code></td><td>Sort column with direction (<code>.asc</code> / <code>.desc</code>)</td></tr>
+          <tr><td><code>limit</code></td><td><code>limit=100</code></td><td>Max rows (default 50, max 1000)</td></tr>
+          <tr><td><code>offset</code></td><td><code>offset=50</code></td><td>Offset for pagination</td></tr>
+          <tr><td><code>page</code></td><td><code>page=2</code></td><td>Page number (alternative to offset)</td></tr>
+        </table>
+        <h3>Supported Tables</h3>
+        <p>All non-system tables and views are auto-discovered. Querying a table that doesn't exist returns 404.</p>
+      `,
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/r/:schema/:table", d: "List rows with filters, sort, and pagination via query params", auth: true },
+        { m: "GET", p: "/projects/:projectId/r/:schema/:table/:pk", d: "Get a single row by primary key", auth: true },
+        { m: "POST", p: "/projects/:projectId/r/:schema/:table", d: "Insert a row (single object) or bulk insert (array of objects)", auth: true },
+        { m: "PATCH", p: "/projects/:projectId/r/:schema/:table", d: "Update rows matching filter query params", auth: true },
+        { m: "PATCH", p: "/projects/:projectId/r/:schema/:table/:pk", d: "Update a single row by primary key", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/r/:schema/:table", d: "Delete rows by filter query params or send body array of PK values", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/r/:schema/:table/:pk", d: "Delete a single row by primary key", auth: true },
+      ]
+    },
+    {
+      id: "schemas", title: "Schema DDL",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "POST", p: "/projects/:projectId/schemas", d: "Create schema", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:name", d: "Drop schema", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/schemas/:schema/tables", d: "Create table", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:schema/tables/:table", d: "Drop table", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/schemas/:schema/tables/:table/columns", d: "Add column", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:schema/tables/:table/columns/:column", d: "Drop column", auth: "admin" },
+        { m: "PATCH", p: "/projects/:projectId/schemas/:schema/tables/:table/columns/:column", d: "Alter column", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/schemas/:schema/tables/:table/constraints", d: "Add constraint", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:schema/tables/:table/constraints/:constraint", d: "Drop constraint", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/schemas/:schema/tables/:table/ddl", d: "Get table DDL", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/schemas/:schema/indexes", d: "Create index", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:schema/indexes/:name", d: "Drop index", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/schemas/:schema/sequences", d: "Create sequence", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/schemas/:schema/sequences/:name", d: "Drop sequence", auth: "admin" },
+        { m: "PATCH", p: "/projects/:projectId/schemas/:schema/sequences/:name", d: "Alter sequence", auth: "admin" },
+      ]
+    },
+    {
+      id: "roles", title: "Role Management",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/roles", d: "List PostgreSQL roles", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles", d: "Create role", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/roles/:name", d: "Get role details", auth: "admin" },
+        { m: "PATCH", p: "/projects/:projectId/roles/:name", d: "Alter role", auth: "admin" },
+        { m: "DELETE", p: "/projects/:projectId/roles/:name", d: "Drop role", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/password", d: "Set role password", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/grant-database", d: "Grant database privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/grant-schema", d: "Grant schema privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/grant-table", d: "Grant table privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/revoke-database", d: "Revoke database privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/revoke-schema", d: "Revoke schema privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/revoke-table", d: "Revoke table privileges", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/add-member", d: "Add role member", auth: "admin" },
+        { m: "POST", p: "/projects/:projectId/roles/:name/remove-member", d: "Remove role member", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/roles/privileges/databases", d: "List database privileges", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/roles/privileges/schemas", d: "List schema privileges", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/roles/privileges/tables", d: "List table privileges", auth: "admin" },
+        { m: "GET", p: "/projects/:projectId/roles/:name/members", d: "Get role members", auth: "admin" },
+      ]
+    },
+    {
+      id: "sql", title: "SQL Editor",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "POST", p: "/projects/:projectId/sql/execute", d: "Execute arbitrary SQL query", auth: true },
+        { m: "POST", p: "/projects/:projectId/sql/explain", d: "Get query execution plan", auth: true },
+        { m: "POST", p: "/projects/:projectId/sql/cancel", d: "Cancel a running query by PID", auth: true },
+        { m: "GET", p: "/projects/:projectId/sql/history", d: "Get query execution history", auth: true },
+        { m: "GET", p: "/projects/:projectId/sql/saved", d: "List saved queries", auth: true },
+        { m: "POST", p: "/projects/:projectId/sql/saved", d: "Save a query", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/sql/saved/:id", d: "Delete saved query", auth: true },
+      ]
+    },
+    {
+      id: "monitoring", title: "Monitoring",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/monitoring/sessions", d: "List active sessions", auth: true },
+        { m: "GET", p: "/projects/:projectId/monitoring/queries/slow", d: "List slow queries", auth: true },
+        { m: "GET", p: "/projects/:projectId/monitoring/queries/stats", d: "Query statistics", auth: true },
+        { m: "GET", p: "/projects/:projectId/monitoring/locks", d: "List active locks", auth: true },
+        { m: "GET", p: "/projects/:projectId/monitoring/locks/waiting", d: "List waiting queries", auth: true },
+        { m: "POST", p: "/projects/:projectId/monitoring/sessions/terminate", d: "Terminate a session", auth: true },
+        { m: "POST", p: "/projects/:projectId/monitoring/queries/cancel", d: "Cancel a query", auth: true },
+      ]
+    },
+    {
+      id: "backups", title: "Backups",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/backups", d: "List backups", auth: true },
+        { m: "POST", p: "/projects/:projectId/backups", d: "Create backup", auth: true },
+        { m: "GET", p: "/projects/:projectId/backups/:id", d: "Get backup details", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/backups/:id", d: "Delete backup", auth: true },
+        { m: "POST", p: "/projects/:projectId/backups/:id/restore", d: "Restore backup", auth: true },
+        { m: "GET", p: "/projects/:projectId/backups/:id/download", d: "Download backup", auth: true },
+        { m: "GET", p: "/projects/:projectId/backups/:id/verify", d: "Verify backup integrity", auth: true },
+      ]
+    },
+    {
+      id: "extensions", title: "Extensions",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/extensions", d: "List installed extensions", auth: true },
+        { m: "POST", p: "/projects/:projectId/extensions", d: "Install extension", auth: true },
+        { m: "DELETE", p: "/projects/:projectId/extensions/:name", d: "Uninstall extension", auth: true },
+      ]
+    },
+    {
+      id: "logs", title: "Logs",
+      info: "Scoped under <code>/projects/:projectId</code>.",
+      endpoints: [
+        { m: "GET", p: "/projects/:projectId/logs", d: "List PostgreSQL logs", auth: true },
+        { m: "GET", p: "/projects/:projectId/logs/errors", d: "List error logs", auth: true },
+      ]
+    },
+    {
+      id: "audit", title: "Audit Logs",
+      info: "Independent of projects — no projectId required.",
+      endpoints: [
+        { m: "GET", p: "/audit-logs", d: "List audit logs", auth: true },
+        { m: "GET", p: "/audit-logs/:resource/:resource_id", d: "Get audit logs by resource", auth: true },
+      ]
+    },
+    {
+      id: "admin", title: "Admin Users",
+      info: "Under <code>/admin/users</code> (via auth module).",
+      endpoints: [
+        { m: "GET", p: "/admin/users", d: "List all users", auth: "super_admin" },
+        { m: "POST", p: "/admin/users", d: "Create user", auth: "super_admin" },
+        { m: "GET", p: "/admin/users/:id", d: "Get user by ID", auth: "super_admin" },
+        { m: "PATCH", p: "/admin/users/:id", d: "Update user", auth: "super_admin" },
+        { m: "PATCH", p: "/admin/users/:id/password", d: "Set user password", auth: "super_admin" },
+        { m: "DELETE", p: "/admin/users/:id", d: "Delete user", auth: "super_admin" },
+      ]
+    },
+  ]
+};
+
+// ── Render ──
+const contentEl = document.getElementById('content');
+const sidebarEl = document.getElementById('sidebar');
+const brand = document.getElementById('brand');
+const toast = document.getElementById('toast');
+
+function render() {
+  let sidebarHtml = '';
+  DOCS.sections.forEach((sec, i) => {
+    sidebarHtml += `<h3>${sec.title}</h3>`;
+    if (sec.content) {
+      sidebarHtml += `<a href="#${sec.id}" data-section="${i}">Overview</a>`;
+    }
+    if (sec.endpoints) {
+      sec.endpoints.forEach((ep, j) => {
+        const label = ep.p.split('/').pop();
+        sidebarHtml += `<a href="#${sec.id}-${j}" data-section="${i}" data-endpoint="${j}">${ep.m} ${label}</a>`;
+      });
+    }
+  });
+  sidebarEl.innerHTML = sidebarHtml;
+
+  let contentHtml = '';
+  DOCS.sections.forEach((sec, si) => {
+    if (sec.content) {
+      contentHtml += `<section id="${sec.id}">${sec.content}</section>`;
+    }
+    if (sec.endpoints) {
+      sec.endpoints.forEach((ep, ei) => {
+        const badge = !ep.auth ? '<span class="badge">Public</span>'
+          : ep.auth === 'admin' ? '<span class="badge admin">Admin</span>'
+          : '<span class="badge auth">Auth</span>';
+
+        let bodyHtml = '<div class="endpoint-body">';
+        bodyHtml += `<p class="desc">${ep.d}</p>`;
+        if (ep.body) {
+          bodyHtml += '<h4>Request Body</h4><table>';
+          for (const [k, v] of Object.entries(ep.body)) {
+            bodyHtml += `<tr><td><code>${k}</code></td><td>${v}</td></tr>`;
+          }
+          bodyHtml += '</table>';
+        }
+        bodyHtml += '</div>';
+
+        contentHtml += `
+          <div class="endpoint" id="${sec.id}-${ei}">
+            <div class="endpoint-head" onclick="toggle(this)">
+              <span class="method ${ep.m.toLowerCase()}">${ep.m}</span>
+              <span class="path">${ep.p}</span>
+              ${badge}
+            </div>
+            ${bodyHtml}
+          </div>
+        `;
+      });
+    }
+  });
+  contentEl.innerHTML = contentHtml;
+
+  // Sidebar scroll tracking
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        sidebarEl.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+        const id = entry.target.id;
+        sidebarEl.querySelector(`a[href="#${id}"]`)?.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px' });
+  contentEl.querySelectorAll('[id]').forEach(el => observer.observe(el));
+}
+
+function toggle(head) {
+  head.parentElement.classList.toggle('open');
+}
+
+// ── Theme ──
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+  document.getElementById('themeToggle').textContent = t === 'dark' ? '🌙' : '☀️';
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+});
+const saved = localStorage.getItem('theme') || 'dark';
+setTheme(saved);
+
+// ── Double-tap login easter egg ──
+let tapCount = 0;
+let tapTimer = null;
+brand.addEventListener('click', () => {
+  tapCount++;
+  if (tapCount === 2) {
+    clearTimeout(tapTimer);
+    tapCount = 0;
+    window.location.href = '/v1/auth/login';
+  } else {
+    tapTimer = setTimeout(() => { tapCount = 0; }, 400);
+  }
+});
+
+// ── Sidebar click scroll ──
+sidebarEl.addEventListener('click', (e) => {
+  const a = e.target.closest('a');
+  if (!a) return;
+  e.preventDefault();
+  const href = a.getAttribute('href');
+  if (href && href.startsWith('#')) {
+    document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nexbic/platform/internal/extensions/models"
 	"github.com/nexbic/platform/pkg/database"
+	"github.com/nexbic/platform/pkg/helpers"
 )
 
 type ExtensionsService struct {
@@ -50,7 +51,7 @@ func (s *ExtensionsService) ListExtensions(ctx context.Context) ([]models.Extens
 }
 
 func (s *ExtensionsService) InstallExtension(ctx context.Context, name, version string) error {
-	query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS %s", quoteIdent(name))
+	query := fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS %s", helpers.QuoteIdent(name))
 	if version != "" {
 		query += fmt.Sprintf(" VERSION %s", quoteLiteral(version))
 	}
@@ -59,12 +60,8 @@ func (s *ExtensionsService) InstallExtension(ctx context.Context, name, version 
 }
 
 func (s *ExtensionsService) UninstallExtension(ctx context.Context, name string) error {
-	_, err := s.db.Pool.Exec(ctx, fmt.Sprintf("DROP EXTENSION IF EXISTS %s", quoteIdent(name)))
+	_, err := s.db.Pool.Exec(ctx, fmt.Sprintf("DROP EXTENSION IF EXISTS %s", helpers.QuoteIdent(name)))
 	return err
-}
-
-func quoteIdent(name string) string {
-	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 func quoteLiteral(val string) string {

@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -59,4 +61,12 @@ func ErrNoRowsAsNil(err error) error {
 		return nil
 	}
 	return err
+}
+
+func QuoteIdent(parts ...string) string {
+	quoted := make([]string, len(parts))
+	for i, p := range parts {
+		quoted[i] = `"` + strings.ReplaceAll(p, `"`, `""`) + `"`
+	}
+	return strings.Join(quoted, ".")
 }

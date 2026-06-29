@@ -3,10 +3,11 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/nexbic/platform/internal/schema/handlers"
+	"github.com/nexbic/platform/internal/middleware"
 )
 
-func RegisterSchemaRoutes(router fiber.Router, handler *handlers.SchemaHandler) {
-	g := router.Group("/schemas")
+func RegisterSchemaRoutes(router fiber.Router, handler *handlers.SchemaHandler, authMW *middleware.AuthMiddleware) {
+	g := router.Group("/schemas", authMW.RequireAuth(), authMW.RequireRole("super_admin", "dba"))
 
 	g.Post("/", handler.CreateSchema)
 	g.Delete("/:schema", handler.DropSchema)

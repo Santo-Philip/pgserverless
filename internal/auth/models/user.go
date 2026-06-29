@@ -14,13 +14,18 @@ const (
 )
 
 type User struct {
-	ID           uuid.UUID  `json:"id"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	Name         string     `json:"name"`
-	Role         string     `json:"role"`
-	IsActive     bool       `json:"is_active"`
-	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	Email           string     `json:"email"`
+	PasswordHash    string     `json:"-"`
+	Name            string     `json:"name"`
+	Image           string     `json:"image,omitempty"`
+	Role            string     `json:"role"`
+	IsActive        bool       `json:"is_active"`
+	EmailVerified   bool       `json:"email_verified"`
+	TOTPEnabled     bool       `json:"totp_enabled"`
+	TOTPSecret      string     `json:"-"`
+	RecoveryCodes   []string   `json:"-"`
+	LastLoginAt     *time.Time `json:"last_login_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }

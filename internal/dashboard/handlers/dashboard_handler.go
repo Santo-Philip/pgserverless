@@ -22,21 +22,3 @@ func (h *DashboardHandler) Overview(c *fiber.Ctx) error {
 
 	return response.OK(c, overview)
 }
-
-func (h *DashboardHandler) Stats(c *fiber.Ctx) error {
-	stats, err := h.service.GetOverview(c.Context())
-	if err != nil {
-		return response.InternalError(c, "failed to fetch stats: "+err.Error())
-	}
-
-	return response.OK(c, stats.Stats)
-}
-
-func (h *DashboardHandler) Schemas(c *fiber.Ctx) error {
-	overview, err := h.service.GetOverview(c.Context())
-	if err != nil {
-		return response.InternalError(c, "failed to fetch schemas: "+err.Error())
-	}
-
-	return response.OK(c, overview.Schemas)
-}

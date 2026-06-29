@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/nexbic/platform/internal/schema/models"
 	"github.com/nexbic/platform/pkg/database"
+	"github.com/nexbic/platform/pkg/helpers"
 )
 
 type SchemaService struct {
@@ -19,29 +20,21 @@ func NewSchemaService(db *database.DB) *SchemaService {
 	return &SchemaService{db: db}
 }
 
-func quoteIdent(parts ...string) string {
-	quoted := make([]string, len(parts))
-	for i, p := range parts {
-		quoted[i] = `"` + strings.ReplaceAll(p, `"`, `""`) + `"`
-	}
-	return strings.Join(quoted, ".")
-}
-
 func quoteIdents(parts ...string) []string {
 	res := make([]string, len(parts))
 	for i, p := range parts {
-		res[i] = quoteIdent(p)
+		res[i] = helpers.QuoteIdent(p)
 	}
 	return res
 }
 
 func (s *SchemaService) CreateSchema(ctx context.Context, name string) error {
-	sql := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", quoteIdent(name))
+	sql := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", helpers.QuoteIdent(name))
 	return s.db.Exec(ctx, sql)
 }
 
 func (s *SchemaService) DropSchema(ctx context.Context, name string, cascade bool) error {
-	sql := fmt.Sprintf("DROP SCHEMA %s", quoteIdent(name))
+	sql := fmt.Sprintf("DROP SCHEMA %s", helpers.QuoteIdent(name))
 	if cascade {
 		sql += " CASCADE"
 	}
@@ -55,13 +48,13 @@ func (s *SchemaService) CreateTable(ctx context.Context, schema string, req mode
 	if req.IfNotExists {
 		stmt.WriteString("IF NOT EXISTS ")
 	}
-	stmt.WriteString(quoteIdent(schema, req.Name))
+	stmt.WriteString(helpers.QuoteIdent(schema, req.Name))
 	stmt.WriteString(" (\n")
 
 	var pkCols []string
 	colDefs := make([]string, 0, len(req.Columns))
 	for _, col := range req.Columns {
-		def := fmt.Sprintf("  %s %s", quoteIdent(col.Name), col.Type)
+		def := fmt.Sprintf("  %s %s", helpers.QuoteIdent(col.Name), col.Type)
 		if !col.Nullable {
 			def += " NOT NULL"
 		}
@@ -70,7 +63,7 @@ func (s *SchemaService) CreateTable(ctx context.Context, schema string, req mode
 		}
 		colDefs = append(colDefs, def)
 		if col.IsPK {
-			pkCols = append(pkCols, quoteIdent(col.Name))
+			pkCols = append(pkCols, helpers.QuoteIdent(col.Name))
 		}
 	}
 
@@ -93,7 +86,7 @@ func (s *SchemaService) CreateTable(ctx context.Context, schema string, req mode
 }
 
 func (s *SchemaService) DropTable(ctx context.Context, schema, name string, cascade bool) error {
-	sql := fmt.Sprintf("DROP TABLE %s", quoteIdent(schema, name))
+	sql := fmt.Sprintf("DROP TABLE %s", helpers.QuoteIdent(schema, name))
 	if cascade {
 		sql += " CASCADE"
 	}
@@ -103,7 +96,7 @@ func (s *SchemaService) DropTable(ctx context.Context, schema, name string, casc
 func (s *SchemaService) AddColumn(ctx context.Context, schema, table string, req models.AddColumnRequest) error {
 	var stmt strings.Builder
 	stmt.WriteString(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s",
-		quoteIdent(schema, table), quoteIdent(req.Name), req.Type))
+		helpers.QuoteIdent(schema, table), helpers.QuoteIdent(req.Name), req.Type))
 	if !req.Nullable {
 		stmt.WriteString(" NOT NULL")
 	}
@@ -115,21 +108,21 @@ func (s *SchemaService) AddColumn(ctx context.Context, schema, table string, req
 
 func (s *SchemaService) DropColumn(ctx context.Context, schema, table, column string) error {
 	sql := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s",
-		quoteIdent(schema, table), quoteIdent(column))
+		helpers.QuoteIdent(schema, table), helpers.QuoteIdent(column))
 	return s.db.Exec(ctx, sql)
 }
 
 func (s *SchemaService) AlterColumn(ctx context.Context, schema, table, column string, req models.AlterColumnRequest) error {
 	if req.DataType != "" {
 		sql := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s",
-			quoteIdent(schema, table), quoteIdent(column), req.DataType)
+			helpers.QuoteIdent(schema, table), helpers.QuoteIdent(column), req.DataType)
 		if err := s.db.Exec(ctx, sql); err != nil {
 			return err
 		}
 	}
 	if req.DefaultValue != nil {
 		sql := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT %s",
-			quoteIdent(schema, table), quoteIdent(column), *req.DefaultValue)
+			helpers.QuoteIdent(schema, table), helpers.QuoteIdent(column), *req.DefaultValue)
 		if err := s.db.Exec(ctx, sql); err != nil {
 			return err
 		}
@@ -137,13 +130,13 @@ func (s *SchemaService) AlterColumn(ctx context.Context, schema, table, column s
 	if req.Nullable != nil {
 		if *req.Nullable {
 			sql := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s DROP NOT NULL",
-				quoteIdent(schema, table), quoteIdent(column))
+				helpers.QuoteIdent(schema, table), helpers.QuoteIdent(column))
 			if err := s.db.Exec(ctx, sql); err != nil {
 				return err
 			}
 		} else {
 			sql := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET NOT NULL",
-				quoteIdent(schema, table), quoteIdent(column))
+				helpers.QuoteIdent(schema, table), helpers.QuoteIdent(column))
 			if err := s.db.Exec(ctx, sql); err != nil {
 				return err
 			}
@@ -155,7 +148,7 @@ func (s *SchemaService) AlterColumn(ctx context.Context, schema, table, column s
 func (s *SchemaService) AddConstraint(ctx context.Context, schema, table string, req models.AddConstraintRequest) error {
 	var stmt strings.Builder
 	stmt.WriteString(fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s ",
-		quoteIdent(schema, table), quoteIdent(req.Name)))
+		helpers.QuoteIdent(schema, table), helpers.QuoteIdent(req.Name)))
 
 	switch strings.ToUpper(req.Type) {
 	case "PK", "PRIMARY KEY":
@@ -170,8 +163,8 @@ func (s *SchemaService) AddConstraint(ctx context.Context, schema, table string,
 		}
 		stmt.WriteString(fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s (%s)",
 			strings.Join(quoteIdents(req.Columns...), ", "),
-			quoteIdent(schema, req.RefTable),
-			quoteIdent(req.RefColumn)))
+			helpers.QuoteIdent(schema, req.RefTable),
+			helpers.QuoteIdent(req.RefColumn)))
 	case "UNIQUE":
 		if len(req.Columns) == 0 {
 			return fmt.Errorf("columns required for unique constraint")
@@ -192,7 +185,7 @@ func (s *SchemaService) AddConstraint(ctx context.Context, schema, table string,
 
 func (s *SchemaService) DropConstraint(ctx context.Context, schema, table, constraint string) error {
 	sql := fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s",
-		quoteIdent(schema, table), quoteIdent(constraint))
+		helpers.QuoteIdent(schema, table), helpers.QuoteIdent(constraint))
 	return s.db.Exec(ctx, sql)
 }
 
@@ -204,9 +197,9 @@ func (s *SchemaService) CreateIndex(ctx context.Context, schema string, req mode
 		stmt.WriteString("UNIQUE ")
 	}
 	stmt.WriteString("INDEX ")
-	stmt.WriteString(quoteIdent(req.Name))
+	stmt.WriteString(helpers.QuoteIdent(req.Name))
 	stmt.WriteString(" ON ")
-	stmt.WriteString(quoteIdent(schema, req.Table))
+	stmt.WriteString(helpers.QuoteIdent(schema, req.Table))
 
 	if req.Method != "" {
 		stmt.WriteString(" USING ")
@@ -226,14 +219,14 @@ func (s *SchemaService) CreateIndex(ctx context.Context, schema string, req mode
 }
 
 func (s *SchemaService) DropIndex(ctx context.Context, schema, name string) error {
-	sql := fmt.Sprintf("DROP INDEX %s", quoteIdent(schema, name))
+	sql := fmt.Sprintf("DROP INDEX %s", helpers.QuoteIdent(schema, name))
 	return s.db.Exec(ctx, sql)
 }
 
 func (s *SchemaService) CreateSequence(ctx context.Context, schema string, req models.CreateSequenceRequest) error {
 	var stmt strings.Builder
 	stmt.WriteString("CREATE SEQUENCE ")
-	stmt.WriteString(quoteIdent(schema, req.Name))
+	stmt.WriteString(helpers.QuoteIdent(schema, req.Name))
 
 	if req.Options != nil {
 		if req.Options.Increment != nil {
@@ -265,14 +258,14 @@ func (s *SchemaService) CreateSequence(ctx context.Context, schema string, req m
 }
 
 func (s *SchemaService) DropSequence(ctx context.Context, schema, name string) error {
-	sql := fmt.Sprintf("DROP SEQUENCE %s", quoteIdent(schema, name))
+	sql := fmt.Sprintf("DROP SEQUENCE %s", helpers.QuoteIdent(schema, name))
 	return s.db.Exec(ctx, sql)
 }
 
 func (s *SchemaService) AlterSequence(ctx context.Context, schema, name string, req models.AlterSequenceRequest) error {
 	var stmt strings.Builder
 	stmt.WriteString("ALTER SEQUENCE ")
-	stmt.WriteString(quoteIdent(schema, name))
+	stmt.WriteString(helpers.QuoteIdent(schema, name))
 
 	if req.Options.Increment != nil {
 		stmt.WriteString(" INCREMENT BY ")
@@ -350,12 +343,12 @@ func (s *SchemaService) GetTableDDL(ctx context.Context, schema, table string) (
 
 	var b strings.Builder
 	b.WriteString("CREATE TABLE ")
-	b.WriteString(quoteIdent(schema, table))
+	b.WriteString(helpers.QuoteIdent(schema, table))
 	b.WriteString(" (\n")
 
 	colLines := make([]string, 0, len(cols))
 	for _, col := range cols {
-		line := fmt.Sprintf("    %s %s", quoteIdent(col.name), col.dataType)
+		line := fmt.Sprintf("    %s %s", helpers.QuoteIdent(col.name), col.dataType)
 		if col.identity != "" {
 			line += " GENERATED " + col.identity + " AS IDENTITY"
 		}
@@ -386,37 +379,37 @@ func (s *SchemaService) GetTableDDL(ctx context.Context, schema, table string) (
 		switch con.typ {
 		case "p":
 			b.WriteString("    CONSTRAINT ")
-			b.WriteString(quoteIdent(con.name))
+			b.WriteString(helpers.QuoteIdent(con.name))
 			b.WriteString(" PRIMARY KEY (")
 			colNames := s.resolveColumnNames(cols, con.columns)
 			b.WriteString(strings.Join(colNames, ", "))
 			b.WriteString(")")
 		case "f":
 			b.WriteString("    CONSTRAINT ")
-			b.WriteString(quoteIdent(con.name))
+			b.WriteString(helpers.QuoteIdent(con.name))
 			b.WriteString(" FOREIGN KEY (")
 			colNames := s.resolveColumnNames(cols, con.columns)
 			b.WriteString(strings.Join(colNames, ", "))
 			b.WriteString(") REFERENCES ")
 			refSchema, refTable, refCols := s.resolveFKRef(ctx, con.fwdRelID, con.fwdKeys)
 			if refSchema != "" {
-				b.WriteString(quoteIdent(refSchema, refTable))
+				b.WriteString(helpers.QuoteIdent(refSchema, refTable))
 			} else {
-				b.WriteString(quoteIdent(refTable))
+				b.WriteString(helpers.QuoteIdent(refTable))
 			}
 			b.WriteString(" (")
 			b.WriteString(strings.Join(refCols, ", "))
 			b.WriteString(")")
 		case "u":
 			b.WriteString("    CONSTRAINT ")
-			b.WriteString(quoteIdent(con.name))
+			b.WriteString(helpers.QuoteIdent(con.name))
 			b.WriteString(" UNIQUE (")
 			colNames := s.resolveColumnNames(cols, con.columns)
 			b.WriteString(strings.Join(colNames, ", "))
 			b.WriteString(")")
 		case "c":
 			b.WriteString("    CONSTRAINT ")
-			b.WriteString(quoteIdent(con.name))
+			b.WriteString(helpers.QuoteIdent(con.name))
 			b.WriteString(" CHECK (")
 			b.WriteString(con.def)
 			b.WriteString(")")
@@ -504,9 +497,9 @@ func (s *SchemaService) resolveColumnNames(cols []columnInfo, attnums []int16) [
 	names := make([]string, len(attnums))
 	for i, an := range attnums {
 		if name, ok := lookup[an]; ok {
-			names[i] = quoteIdent(name)
+			names[i] = helpers.QuoteIdent(name)
 		} else {
-			names[i] = quoteIdent(fmt.Sprintf("?%d", an))
+			names[i] = helpers.QuoteIdent(fmt.Sprintf("?%d", an))
 		}
 	}
 	return names
@@ -537,7 +530,7 @@ func (s *SchemaService) resolveFKRef(ctx context.Context, relID uint32, fwdKeys 
 		if err != nil {
 			colNames[i] = "?"
 		} else {
-			colNames[i] = quoteIdent(colName)
+			colNames[i] = helpers.QuoteIdent(colName)
 		}
 	}
 

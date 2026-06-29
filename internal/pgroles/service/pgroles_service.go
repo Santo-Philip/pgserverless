@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/nexbic/platform/internal/pgroles/models"
 	"github.com/nexbic/platform/pkg/database"
+	"github.com/nexbic/platform/pkg/helpers"
 )
 
 type PgRolesService struct {
@@ -17,10 +18,6 @@ type PgRolesService struct {
 
 func NewPgRolesService(db *database.DB) *PgRolesService {
 	return &PgRolesService{db: db}
-}
-
-func quoteIdent(name string) string {
-	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 func quoteLiteral(val string) string {
@@ -177,13 +174,13 @@ func (s *PgRolesService) CreateRole(ctx context.Context, req *models.CreateRoleR
 		opts = append(opts, fmt.Sprintf("VALID UNTIL %s", quoteLiteral(*req.ValidUntil)))
 	}
 
-	sql := fmt.Sprintf("CREATE ROLE %s WITH %s", quoteIdent(req.Name), strings.Join(opts, " "))
+	sql := fmt.Sprintf("CREATE ROLE %s WITH %s", helpers.QuoteIdent(req.Name), strings.Join(opts, " "))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("create role: %w", err)
 	}
 
 	for _, memberOf := range req.InRoles {
-		grantsql := fmt.Sprintf("GRANT %s TO %s", quoteIdent(memberOf), quoteIdent(req.Name))
+		grantsql := fmt.Sprintf("GRANT %s TO %s", helpers.QuoteIdent(memberOf), helpers.QuoteIdent(req.Name))
 		if _, err := s.db.Pool.Exec(ctx, grantsql); err != nil {
 			return fmt.Errorf("grant role membership %q: %w", memberOf, err)
 		}
@@ -240,14 +237,14 @@ func (s *PgRolesService) AlterRole(ctx context.Context, name string, req *models
 		opts = append(opts, fmt.Sprintf("VALID UNTIL %s", quoteLiteral(*req.ValidUntil)))
 	}
 	if req.Name != nil {
-		sql := fmt.Sprintf("ALTER ROLE %s RENAME TO %s", quoteIdent(name), quoteIdent(*req.Name))
+		sql := fmt.Sprintf("ALTER ROLE %s RENAME TO %s", helpers.QuoteIdent(name), helpers.QuoteIdent(*req.Name))
 		if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 			return fmt.Errorf("rename role: %w", err)
 		}
 	}
 
 	if len(opts) > 0 {
-		sql := fmt.Sprintf("ALTER ROLE %s WITH %s", quoteIdent(name), strings.Join(opts, " "))
+		sql := fmt.Sprintf("ALTER ROLE %s WITH %s", helpers.QuoteIdent(name), strings.Join(opts, " "))
 		if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 			return fmt.Errorf("alter role: %w", err)
 		}
@@ -277,7 +274,7 @@ func (s *PgRolesService) DropRole(ctx context.Context, name string) error {
 		return fmt.Errorf("role %q owns %d object(s); reassign or drop them first", name, objCount)
 	}
 
-	sql := fmt.Sprintf("DROP ROLE %s", quoteIdent(name))
+	sql := fmt.Sprintf("DROP ROLE %s", helpers.QuoteIdent(name))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("drop role: %w", err)
 	}
@@ -286,7 +283,7 @@ func (s *PgRolesService) DropRole(ctx context.Context, name string) error {
 
 func (s *PgRolesService) GrantDatabase(ctx context.Context, role, databaseName, permissions string) error {
 	sql := fmt.Sprintf("GRANT %s ON DATABASE %s TO %s",
-		permissions, quoteIdent(databaseName), quoteIdent(role))
+		permissions, helpers.QuoteIdent(databaseName), helpers.QuoteIdent(role))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("grant database: %w", err)
 	}
@@ -295,7 +292,7 @@ func (s *PgRolesService) GrantDatabase(ctx context.Context, role, databaseName, 
 
 func (s *PgRolesService) GrantSchema(ctx context.Context, role, schema, permissions string) error {
 	sql := fmt.Sprintf("GRANT %s ON SCHEMA %s TO %s",
-		permissions, quoteIdent(schema), quoteIdent(role))
+		permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(role))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("grant schema: %w", err)
 	}
@@ -306,10 +303,10 @@ func (s *PgRolesService) GrantTable(ctx context.Context, role, schema, table, pe
 	var sql string
 	if schema != "" && table != "" {
 		sql = fmt.Sprintf("GRANT %s ON TABLE %s.%s TO %s",
-			permissions, quoteIdent(schema), quoteIdent(table), quoteIdent(role))
+			permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(table), helpers.QuoteIdent(role))
 	} else {
 		sql = fmt.Sprintf("GRANT %s ON ALL TABLES IN SCHEMA %s TO %s",
-			permissions, quoteIdent(schema), quoteIdent(role))
+			permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(role))
 	}
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("grant table: %w", err)
@@ -319,7 +316,7 @@ func (s *PgRolesService) GrantTable(ctx context.Context, role, schema, table, pe
 
 func (s *PgRolesService) RevokeDatabase(ctx context.Context, role, databaseName, permissions string, cascade bool) error {
 	sql := fmt.Sprintf("REVOKE %s ON DATABASE %s FROM %s",
-		permissions, quoteIdent(databaseName), quoteIdent(role))
+		permissions, helpers.QuoteIdent(databaseName), helpers.QuoteIdent(role))
 	if cascade {
 		sql += " CASCADE"
 	}
@@ -331,7 +328,7 @@ func (s *PgRolesService) RevokeDatabase(ctx context.Context, role, databaseName,
 
 func (s *PgRolesService) RevokeSchema(ctx context.Context, role, schema, permissions string, cascade bool) error {
 	sql := fmt.Sprintf("REVOKE %s ON SCHEMA %s FROM %s",
-		permissions, quoteIdent(schema), quoteIdent(role))
+		permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(role))
 	if cascade {
 		sql += " CASCADE"
 	}
@@ -345,10 +342,10 @@ func (s *PgRolesService) RevokeTable(ctx context.Context, role, schema, table, p
 	var sql string
 	if schema != "" && table != "" {
 		sql = fmt.Sprintf("REVOKE %s ON TABLE %s.%s FROM %s",
-			permissions, quoteIdent(schema), quoteIdent(table), quoteIdent(role))
+			permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(table), helpers.QuoteIdent(role))
 	} else {
 		sql = fmt.Sprintf("REVOKE %s ON ALL TABLES IN SCHEMA %s FROM %s",
-			permissions, quoteIdent(schema), quoteIdent(role))
+			permissions, helpers.QuoteIdent(schema), helpers.QuoteIdent(role))
 	}
 	if cascade {
 		sql += " CASCADE"
@@ -360,7 +357,7 @@ func (s *PgRolesService) RevokeTable(ctx context.Context, role, schema, table, p
 }
 
 func (s *PgRolesService) AddMember(ctx context.Context, role, memberOf string) error {
-	sql := fmt.Sprintf("GRANT %s TO %s", quoteIdent(memberOf), quoteIdent(role))
+	sql := fmt.Sprintf("GRANT %s TO %s", helpers.QuoteIdent(memberOf), helpers.QuoteIdent(role))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("add member: %w", err)
 	}
@@ -368,7 +365,7 @@ func (s *PgRolesService) AddMember(ctx context.Context, role, memberOf string) e
 }
 
 func (s *PgRolesService) RemoveMember(ctx context.Context, role, memberOf string) error {
-	sql := fmt.Sprintf("REVOKE %s FROM %s", quoteIdent(memberOf), quoteIdent(role))
+	sql := fmt.Sprintf("REVOKE %s FROM %s", helpers.QuoteIdent(memberOf), helpers.QuoteIdent(role))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("remove member: %w", err)
 	}
@@ -512,7 +509,7 @@ func (s *PgRolesService) GetRoleMembers(ctx context.Context, role string) ([]mod
 }
 
 func (s *PgRolesService) ResetPassword(ctx context.Context, role, password string) error {
-	sql := fmt.Sprintf("ALTER ROLE %s WITH PASSWORD %s", quoteIdent(role), quoteLiteral(password))
+	sql := fmt.Sprintf("ALTER ROLE %s WITH PASSWORD %s", helpers.QuoteIdent(role), quoteLiteral(password))
 	if _, err := s.db.Pool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("reset password: %w", err)
 	}

@@ -10,15 +10,7 @@ func RegisterExplorerRoutes(router fiber.Router, handler *handlers.ExplorerHandl
 	g := router.Group("/explorer", authMW.RequireAuth())
 
 	g.Get("/schemas", handler.ListSchemas)
-	g.Get("/schemas/:schema/tables", handler.ListTables)
+	g.Get("/schemas/:schema/:resource", handler.ListResource)
 	g.Get("/schemas/:schema/tables/:table", handler.GetTableDetails)
-	g.Get("/schemas/:schema/views", handler.ListViews)
-	g.Get("/schemas/:schema/functions", handler.ListFunctions)
-	g.Get("/schemas/:schema/procedures", handler.ListProcedures)
-	g.Get("/schemas/:schema/triggers", handler.ListTriggers)
-	g.Get("/schemas/:schema/indexes", handler.ListIndexes)
-	g.Get("/schemas/:schema/constraints", handler.ListConstraints)
-	g.Get("/schemas/:schema/sequences", handler.ListSequences)
-	g.Get("/schemas/:schema/materialized-views", handler.ListMaterializedViews)
 	g.Get("/extensions", handler.ListExtensions)
 }
