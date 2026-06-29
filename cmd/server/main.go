@@ -16,45 +16,44 @@ import (
 	auditHandlers "github.com/nexbic/platform/internal/audit/handlers"
 	auditRoutes "github.com/nexbic/platform/internal/audit/routes"
 	auditService "github.com/nexbic/platform/internal/audit/service"
-	authHandlers "github.com/nexbic/platform/internal/auth/handlers"
-	authRepo "github.com/nexbic/platform/internal/auth/repository"
-	authRoutes "github.com/nexbic/platform/internal/auth/routes"
-	authService "github.com/nexbic/platform/internal/auth/service"
-	backupHandlers "github.com/nexbic/platform/internal/backups/handlers"
-	backupRoutes "github.com/nexbic/platform/internal/backups/routes"
-	backupService "github.com/nexbic/platform/internal/backups/service"
+	authHandlers "github.com/nexbic/platform/internal/identity/auth/handlers"
+	authRepo "github.com/nexbic/platform/internal/identity/auth/repository"
+	authRoutes "github.com/nexbic/platform/internal/identity/auth/routes"
+	authService "github.com/nexbic/platform/internal/identity/auth/service"
+	backupHandlers "github.com/nexbic/platform/internal/database/backups/handlers"
+	backupRoutes "github.com/nexbic/platform/internal/database/backups/routes"
+	backupService "github.com/nexbic/platform/internal/database/backups/service"
 	dashHandlers "github.com/nexbic/platform/internal/dashboard/handlers"
 	dashRoutes "github.com/nexbic/platform/internal/dashboard/routes"
 	dashService "github.com/nexbic/platform/internal/dashboard/service"
-	explorerHandlers "github.com/nexbic/platform/internal/explorer/handlers"
-	explorerRoutes "github.com/nexbic/platform/internal/explorer/routes"
-	explorerService "github.com/nexbic/platform/internal/explorer/service"
-	extHandlers "github.com/nexbic/platform/internal/extensions/handlers"
-	extRoutes "github.com/nexbic/platform/internal/extensions/routes"
-	extService "github.com/nexbic/platform/internal/extensions/service"
-	logsHandlers "github.com/nexbic/platform/internal/logs/handlers"
-	logsRoutes "github.com/nexbic/platform/internal/logs/routes"
-	logsService "github.com/nexbic/platform/internal/logs/service"
+	explorerHandlers "github.com/nexbic/platform/internal/database/explorer/handlers"
+	explorerRoutes "github.com/nexbic/platform/internal/database/explorer/routes"
+	explorerService "github.com/nexbic/platform/internal/database/explorer/service"
+	extHandlers "github.com/nexbic/platform/internal/database/extensions/handlers"
+	extRoutes "github.com/nexbic/platform/internal/database/extensions/routes"
+	extService "github.com/nexbic/platform/internal/database/extensions/service"
+	logsHandlers "github.com/nexbic/platform/internal/database/logs/handlers"
+	logsRoutes "github.com/nexbic/platform/internal/database/logs/routes"
+	logsService "github.com/nexbic/platform/internal/database/logs/service"
 	"github.com/nexbic/platform/internal/middleware"
-	"github.com/nexbic/platform/internal/pgrest"
 	projectsHandlers "github.com/nexbic/platform/internal/projects/handlers"
 	projectsRoutes "github.com/nexbic/platform/internal/projects/routes"
-	monHandlers "github.com/nexbic/platform/internal/monitoring/handlers"
-	monRoutes "github.com/nexbic/platform/internal/monitoring/routes"
-	monService "github.com/nexbic/platform/internal/monitoring/service"
-	pgroleHandlers "github.com/nexbic/platform/internal/pgroles/handlers"
-	pgroleRoutes "github.com/nexbic/platform/internal/pgroles/routes"
-	pgroleService "github.com/nexbic/platform/internal/pgroles/service"
-	schemaHandlers "github.com/nexbic/platform/internal/schema/handlers"
-	schemaRoutes "github.com/nexbic/platform/internal/schema/routes"
-	schemaService "github.com/nexbic/platform/internal/schema/service"
-	storageHandlers "github.com/nexbic/platform/internal/storage/handlers"
-	storageRepo "github.com/nexbic/platform/internal/storage/repository"
-	storageRoutes "github.com/nexbic/platform/internal/storage/routes"
-	storageService "github.com/nexbic/platform/internal/storage/service"
-	sqlHandlers "github.com/nexbic/platform/internal/sql/handlers"
-	sqlRoutes "github.com/nexbic/platform/internal/sql/routes"
-	sqlService "github.com/nexbic/platform/internal/sql/service"
+	monHandlers "github.com/nexbic/platform/internal/database/monitoring/handlers"
+	monRoutes "github.com/nexbic/platform/internal/database/monitoring/routes"
+	monService "github.com/nexbic/platform/internal/database/monitoring/service"
+	pgroleHandlers "github.com/nexbic/platform/internal/database/roles/handlers"
+	pgroleRoutes "github.com/nexbic/platform/internal/database/roles/routes"
+	pgroleService "github.com/nexbic/platform/internal/database/roles/service"
+	schemaHandlers "github.com/nexbic/platform/internal/database/schema/handlers"
+	schemaRoutes "github.com/nexbic/platform/internal/database/schema/routes"
+	schemaService "github.com/nexbic/platform/internal/database/schema/service"
+	storageHandlers "github.com/nexbic/platform/internal/database/storage/handlers"
+	storageRepo "github.com/nexbic/platform/internal/database/storage/repository"
+	storageRoutes "github.com/nexbic/platform/internal/database/storage/routes"
+	storageService "github.com/nexbic/platform/internal/database/storage/service"
+	sqlHandlers "github.com/nexbic/platform/internal/database/sql/handlers"
+	sqlRoutes "github.com/nexbic/platform/internal/database/sql/routes"
+	sqlService "github.com/nexbic/platform/internal/database/sql/service"
 	"github.com/nexbic/platform/pkg/database"
 )
 
@@ -180,14 +179,6 @@ func main() {
 
 	dashRoutes.RegisterDashboardRoutes(scope, dashHandler, authMW)
 	explorerRoutes.RegisterExplorerRoutes(scope, explorerHandler, authMW)
-
-	pgrestAPI, err := pgrest.New(db.Pool)
-	if err != nil {
-		slog.Error("failed to initialize pgrest", "error", err)
-		os.Exit(1)
-	}
-	pgrestAPI.RegisterRoutes(scope, authMW.RequireAuth())
-	slog.Info("pgrest auto-discovered tables", "count", len(pgrestAPI.Tables()))
 
 	sqlRoutes.RegisterSQLRoutes(scope, sqlHandler, authMW)
 	schemaRoutes.RegisterSchemaRoutes(scope, schemaHandler, authMW)

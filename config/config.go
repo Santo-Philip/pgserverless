@@ -37,11 +37,14 @@ type ServerConfig struct {
 }
 
 type JWTConfig struct {
-	Secret     string
-	AccessTTL  time.Duration
-	RefreshTTL time.Duration
-	Issuer     string
-	Audience   string
+	Secret              string
+	AccessTTL           time.Duration
+	RefreshTTL          time.Duration
+	Issuer              string
+	Audience            string
+	OAuthGoogleClientID string
+	OAuthGitHubClientID string
+	OAuthRedirectURL    string
 }
 
 func Load() *Config {
@@ -58,11 +61,14 @@ func Load() *Config {
 			CORSOrigins:     getEnvSlice("CORS_ORIGINS", []string{"http://localhost:5173"}),
 		},
 		JWT: JWTConfig{
-			Secret:      getEnv("JWT_SECRET", ""),
-			AccessTTL:   getEnvDuration("JWT_ACCESS_TTL", 15*time.Minute),
-			RefreshTTL:  getEnvDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
-			Issuer:      getEnv("JWT_ISSUER", "nexbic-db-platform"),
-			Audience:    getEnv("JWT_AUD", "nexbic-db-platform"),
+			Secret:              getEnv("JWT_SECRET", ""),
+			AccessTTL:           getEnvDuration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:          getEnvDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
+			Issuer:              getEnv("JWT_ISSUER", "nexbic-db-platform"),
+			Audience:            getEnv("JWT_AUD", "nexbic-db-platform"),
+			OAuthGoogleClientID: getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
+			OAuthGitHubClientID: getEnv("OAUTH_GITHUB_CLIENT_ID", ""),
+			OAuthRedirectURL:    getEnv("OAUTH_REDIRECT_URL", "http://localhost:2121/v1/auth/oauth/callback"),
 		},
 		SuperAdmin: SuperAdminConfig{
 			Email:    getEnv("SUPER_ADMIN_EMAIL", ""),

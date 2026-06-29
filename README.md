@@ -1,206 +1,226 @@
-# Nexbic Platform
+# Nexbic Core
 
-Multi-tenant PostgreSQL management platform with a public REST API and an internal admin dashboard.
+The identity platform powering every Nexbic application.
+
+Nexbic Core is a production-ready identity and platform backend that provides authentication, session management, wallet, projects, and file storage — backed by a PostgreSQL database.
+
+---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────┐
-│  cmd/api/  (Public API on :2121)             │
-│  ┌──────┐ ┌────────┐ ┌──────┐ ┌───────┐    │
-│  │ Auth │ │Projects│ │Wallet│ │ Files │    │
-│  └──────┘ └────────┘ └──────┘ └───────┘    │
-└──────────────┬───────────────────────────────┘
-               │
-┌──────────────┴───────────────────────────────┐
-│  cmd/dashboard/  (Dashboard on :2122)        │
-│  ┌──────┐ ┌──────────┐ ┌─────┐ ┌────────┐  │
-│  │ Auth │ │ Explorer │ │ SQL │ │ Schema │  │
-│  │ Audit│ │ Dashboard│ │……   │ │ Storage │  │
-│  └──────┘ └──────────┘ └─────┘ └────────┘  │
-│  ┌─────────────────────────────────────────┐ │
-│  │  SvelteKit Frontend                     │ │
-│  └─────────────────────────────────────────┘ │
-└──────────────┬───────────────────────────────┘
-               │
-               ▼
-        ┌──────────────┐
-        │  PostgreSQL   │
-        └──────────────┘
+account.nexbic.com
+erp.nexbic.com
+mehub.in
+future apps
+        │
+        ▼
+
+    Nexbic Core
+
+────────────────────────────────────
+
+Public Platform (cmd/api)
+
+  /v1/auth  /v1/users  /v1/sessions
+  /v1/wallet  /v1/projects  /v1/files
+
+────────────────────────────────────
+
+Internal Platform (cmd/dashboard)
+
+  Identity Mgmt  |  Database Tooling
+  Users          |  SQL Executor
+  Sessions       |  Schema Explorer
+  Wallet         |  Migrations
+  Organizations  |  Monitoring
+                 |  Backups
+
+────────────────────────────────────
+
+        PostgreSQL
 ```
 
-## Components
+---
 
-| Component | Description | Port (default) |
-|-----------|-------------|---------------|
-| **API** | Public-facing REST API — auth, projects, wallet, file uploads | 2121 |
-| **Dashboard** | Internal admin API + SvelteKit dashboard UI | 2122 |
-| **Docs** | Static API documentation served at `/docs/` | (mounted on API server) |
+## Public Platform
 
-## Project Structure
+The public REST API provides everything a Nexbic application needs:
+
+| Area | Endpoints |
+|------|-----------|
+| Auth | Login, Refresh, OAuth (Google, GitHub), Sessions, Devices, API Keys |
+| Users | Profile, Password |
+| Wallet | Balance, Transactions |
+| Projects | CRUD, Members |
+| Files | Upload, Download, List, Delete |
+
+No database administration endpoints are exposed publicly.
+
+---
+
+## Internal Platform
+
+The dashboard is an **internal** application for Nexbic development only. It directly invokes Go services — no HTTP requests to the public API.
+
+Features:
+- **Identity** — Users, Sessions, Wallet, Organizations
+- **Projects** — Create, Delete, Members, Permissions
+- **Database** — SQL, Explorer, Schemas, Migrations, Extensions, Roles, Monitoring, Logs
+- **System** — Audit, Storage, Backups
+
+---
+
+## Shared Services
+
+Business logic lives once in shared Go services and is consumed by both the public API and the dashboard:
+
+```
+internal/identity/auth/     — Authentication & OAuth
+internal/identity/wallet/   — Wallet & transactions
+internal/identity/oauth/    — OAuth providers
+internal/projects/          — Project management
+internal/files/             — File storage
+internal/database/          — Database tooling
+internal/audit/             — Audit logging
+internal/middleware/        — Auth, CORS, rate limiting
+```
+
+---
+
+## Repository Structure
 
 ```
 cmd/
-├── api/          — Public API server entrypoint
-├── dashboard/    — Dashboard server entrypoint
-└── server/       — Legacy monolith entrypoint (preserved)
+  api/            Public API server
+  dashboard/      Internal dashboard server
+  migrate/        Migration runner
+  server/         Legacy monolith (preserved)
 
 internal/
-├── app/          — Shared initialization for both servers
-├── audit/        — Audit log module (dashboard)
-├── auth/         — Authentication & authorization
-├── backups/      — Database backup management
-├── dashboard/    — Dashboard aggregation queries
-├── explorer/     — Schema browsing (tables, views, routines)
-├── extensions/   — PostgreSQL extension management
-├── files/        — Public file upload/download (API)
-├── logs/         — Query log viewer
-├── middleware/    — Auth, CORS, rate-limit, request ID, audit
-├── monitoring/   — Database health & metrics
-├── pgrest/       — Auto-generated REST API per schema/table
-├── pgroles/      — PostgreSQL role management
-├── projects/     — Project CRUD (meta API)
-├── schema/       — Schema diff & migration tooling
-├── sql/          — SQL query executor
-├── storage/      — Internal storage providers/buckets/files
-├── tables/       — Table metadata browsing
-└── wallet/       — User credit/debit wallet
-
-migrations/
-├── 001-schema.sql
-├── 002-seed.sql
-├── 003-auth-storage.sql
-├── 004-projects.sql
-└── 005-wallet.sql
+  identity/
+    auth/         Authentication, users, sessions, API keys, OAuth
+    wallet/       User wallet & transactions
+    oauth/        OAuth provider stubs
+    users/        User management
+    sessions/     Session management
+  projects/       Project CRUD
+  files/          File upload/download
+  dashboard/      Dashboard aggregation queries
+  audit/          Audit logging
+  middleware/     Auth, CORS, rate-limit, request ID, project guard
+  app/            Shared initialization for both servers
+  database/
+    explorer/     Schema & table browsing
+    sql/          SQL query execution
+    schema/       Schema diff & migrations
+    monitoring/   Database health & metrics
+    backups/      Backup & restore
+    extensions/   Extension management
+    roles/        PostgreSQL role management
+    logs/         Query execution logs
+    storage/      Storage providers, buckets, files
+    tables/       Table metadata
 
 pkg/
-├── database/     — PostgreSQL connection pool
-├── helpers/      — UUID parsing, pagination, etc.
-└── response/     — JSON response helpers
+  database/       PostgreSQL connection pool
+  helpers/        UUID parsing, pagination, etc.
+  password/       Argon2id hashing, API key generation
+  response/       JSON response helpers
+  validator/      Request validation
+  totp/           TOTP utilities (for future use)
+
+migrations/       SQL migration files
+docs/             API documentation
 ```
 
-## API Endpoints
-
-All endpoints are prefixed with `/v1`.
-
-### Public API (`cmd/api/`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auth/register` | Register a new user |
-| POST | `/auth/login` | Login |
-| POST | `/auth/refresh` | Refresh JWT |
-| POST | `/auth/forgot-password` | Request password reset |
-| POST | `/auth/reset-password` | Reset password |
-| POST | `/auth/verify-email` | Verify email with token |
-| GET | `/auth/me` | Current user profile |
-| PATCH | `/auth/password` | Change password |
-| POST | `/auth/verify-email/send` | Send verification email |
-| POST | `/auth/totp/enable` | Enable 2FA TOTP |
-| POST | `/auth/totp/verify` | Verify TOTP setup |
-| POST | `/auth/totp/disable` | Disable TOTP |
-| GET | `/auth/devices` | List trusted devices |
-| DELETE | `/auth/devices/:id` | Remove device |
-| GET | `/auth/security-events` | List security events |
-| GET | `/auth/api-keys` | List API keys |
-| POST | `/auth/api-keys` | Create API key |
-| DELETE | `/auth/api-keys/:id` | Revoke API key |
-| GET | `/admin/users` | List users (super_admin) |
-| GET | `/admin/users/:id` | Get user (super_admin) |
-| POST | `/admin/users` | Create user (super_admin) |
-| PATCH | `/admin/users/:id` | Update user (super_admin) |
-| PATCH | `/admin/users/:id/password` | Update user password (super_admin) |
-| DELETE | `/admin/users/:id` | Delete user (super_admin) |
-| GET | `/projects` | List projects |
-| POST | `/projects` | Create project |
-| GET | `/projects/:projectId` | Get project |
-| PATCH | `/projects/:projectId` | Update project |
-| DELETE | `/projects/:projectId` | Delete project |
-| GET | `/wallet/balance` | Get wallet balance |
-| POST | `/wallet/transactions` | Create credit/debit transaction |
-| GET | `/wallet/transactions` | List transactions |
-| GET | `/files` | List user files |
-| POST | `/files/upload` | Upload a file |
-| GET | `/files/:id/download` | Download a file |
-| DELETE | `/files/:id` | Delete a file |
-
-### Dashboard API (`cmd/dashboard/`)
-
-Same auth endpoints (minus public registration / password reset), plus:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/audit` | List audit logs |
-| POST | `/projects/:projectId/dashboard/stats` | Dashboard aggregate stats |
-| GET | `/projects/:projectId/explorer/schemas` | List schemas |
-| GET | `/projects/:projectId/explorer/tables` | List tables |
-| GET | `/projects/:projectId/explorer/views` | List views |
-| GET | `/projects/:projectId/explorer/routines` | List routines |
-| GET | `/projects/:projectId/explorer/extensions` | List installed extensions |
-| POST | `/projects/:projectId/sql/query` | Execute SQL query |
-| POST | `/projects/:projectId/schema/diff` | Schema diff |
-| POST | `/projects/:projectId/schema/migrate` | Apply migration |
-| GET/POST | `/projects/:projectId/pg-roles/*` | PostgreSQL role management |
-| GET/POST | `/projects/:projectId/extensions/*` | Extension management |
-| GET | `/projects/:projectId/monitoring/*` | Database health & metrics |
-| GET/POST/DELETE | `/projects/:projectId/backups/*` | Backup & restore |
-| GET | `/projects/:projectId/logs` | Query execution logs |
-| GET/POST/PATCH/DELETE | `/projects/:projectId/storage/*` | Storage providers, buckets, files |
-
-### Auto-generated REST API (`pgREST`)
-
-Under `/v1/projects/:projectId/r/:schema/:table`, the platform automatically exposes CRUD endpoints for every table discovered in the project's dedicated schema, supporting filtering (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `in`, `is`, `isnot`), ordering, pagination, and selecting specific columns.
+---
 
 ## Quick Start
 
-### 1. Environment
-
 ```bash
+# 1. Configure environment
 cp .env.example .env
+
+# 2. Run migrations
+for f in migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+
+# 3. Start servers
+go run ./cmd/api          # Public API on :2121
+go run ./cmd/dashboard    # Dashboard on :2122
 ```
 
-### 2. Database
-
-```bash
-for f in migrations/*.sql; do
-  psql "$DATABASE_URL" -f "$f"
-done
-```
-
-### 3. Run
-
-```bash
-# Terminal 1: Public API
-go run ./cmd/api
-
-# Terminal 2: Dashboard (internal + frontend)
-go run ./cmd/dashboard
-```
+---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | — | PostgreSQL connection string |
-| `JWT_SECRET` | — | HMAC-SHA256 JWT signing key |
+| `JWT_SECRET` | — | HMAC-SHA256 signing key |
 | `JWT_ACCESS_TTL` | `15m` | Access token lifetime |
 | `JWT_REFRESH_TTL` | `168h` | Refresh token lifetime |
 | `SERVER_PORT` | `2121` | HTTP listen port |
-| `SUPER_ADMIN_EMAIL` | — | Auto-seeded super admin email |
+| `SUPER_ADMIN_EMAIL` | — | Auto-seeded super admin |
 | `SUPER_ADMIN_PASSWORD` | — | Super admin password |
-| `CORS_ORIGINS` | `http://localhost:5173` | Allowed origins |
-| `FILES_DIR` | `/data/user_files` | Public file storage root |
-| `BACKUP_DIR` | `/data/backups` | Database backup directory |
+| `OAUTH_GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
+| `OAUTH_GITHUB_CLIENT_ID` | — | GitHub OAuth client ID |
+| `OAUTH_REDIRECT_URL` | — | OAuth callback URL |
+| `FILES_DIR` | `/data/user_files` | File storage root |
+
+---
+
+## Authentication
+
+- **OAuth 2.0** — Google and GitHub sign-in
+- **JWT** — Signed access tokens with configurable TTL
+- **Refresh Tokens** — Rotated on each use, supports revocation
+- **Session Management** — Multiple devices, session listing & revocation
+- **API Keys** — SHA-256 hashed, scoped to users
+- **Security Events** — Login attempts, password changes, device changes
+
+Email/password, TOTP, and OTP are not implemented in v1. The database schema supports them for future addition.
+
+---
+
+## Session Flow
+
+```
+Login → JWT (access_token + refresh_token)
+        ↓
+Access token in Authorization header
+        ↓
+Token expires → Use refresh_token
+        ↓
+Old refresh token revoked → New pair issued
+        ↓
+Logout → Refresh token deleted
+```
+
+---
+
+## Wallet
+
+- Credit/debit transactions scoped to user accounts
+- Balance tracking per currency
+- Transaction history with pagination
+- Atomic balance updates
+- No user-to-user transfers in v1
+
+---
 
 ## Security
 
 - Passwords hashed with Argon2id
-- JWT tokens with configurable TTL
+- JWT with HMAC-SHA256
 - API keys stored as SHA-256 hashes
-- Rate limiting per-IP (200 req/min)
+- Rate limiting per IP (200 req/min)
 - CORS with explicit origin allowlist
-- Audit logging for all admin actions (dashboard)
-- Project-scoped access via project ownership or super_admin role
+- Audit logging for admin actions
+- Project-scoped access control
+- Refresh token rotation
+
+---
 
 ## Testing
 
@@ -208,6 +228,8 @@ go run ./cmd/dashboard
 go test ./...
 go vet ./...
 ```
+
+---
 
 ## License
 

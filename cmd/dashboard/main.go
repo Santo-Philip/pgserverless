@@ -13,18 +13,20 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/nexbic/platform/internal/app"
 	auditRoutes "github.com/nexbic/platform/internal/audit/routes"
-	authRoutes "github.com/nexbic/platform/internal/auth/routes"
-	backupRoutes "github.com/nexbic/platform/internal/backups/routes"
+	backupRoutes "github.com/nexbic/platform/internal/database/backups/routes"
+	explorerRoutes "github.com/nexbic/platform/internal/database/explorer/routes"
+	extRoutes "github.com/nexbic/platform/internal/database/extensions/routes"
+	logsRoutes "github.com/nexbic/platform/internal/database/logs/routes"
+	monRoutes "github.com/nexbic/platform/internal/database/monitoring/routes"
+	pgroleRoutes "github.com/nexbic/platform/internal/database/roles/routes"
+	schemaRoutes "github.com/nexbic/platform/internal/database/schema/routes"
+	sqlRoutes "github.com/nexbic/platform/internal/database/sql/routes"
+	storageRoutes "github.com/nexbic/platform/internal/database/storage/routes"
 	dashRoutes "github.com/nexbic/platform/internal/dashboard/routes"
-	explorerRoutes "github.com/nexbic/platform/internal/explorer/routes"
-	extRoutes "github.com/nexbic/platform/internal/extensions/routes"
-	logsRoutes "github.com/nexbic/platform/internal/logs/routes"
+	authRoutes "github.com/nexbic/platform/internal/identity/auth/routes"
+	walletRoutes "github.com/nexbic/platform/internal/identity/wallet/routes"
 	"github.com/nexbic/platform/internal/middleware"
-	monRoutes "github.com/nexbic/platform/internal/monitoring/routes"
-	pgroleRoutes "github.com/nexbic/platform/internal/pgroles/routes"
-	schemaRoutes "github.com/nexbic/platform/internal/schema/routes"
-	sqlRoutes "github.com/nexbic/platform/internal/sql/routes"
-	storageRoutes "github.com/nexbic/platform/internal/storage/routes"
+	projectsRoutes "github.com/nexbic/platform/internal/projects/routes"
 )
 
 func main() {
@@ -66,12 +68,13 @@ func main() {
 		return c.JSON(fiber.Map{"status": "ready"})
 	})
 
-	api := f.Group("/v1")
+	v1 := f.Group("/v1")
 
-	authRoutes.RegisterDashboardAuthRoutes(api, a.AuthHandler, a.AuthMW)
-	auditRoutes.RegisterAuditRoutes(api, a.AuditHandler, a.AuthMW)
+	// Identity endpoints (dashboard-appropriate subset)
+	authRoutes.RegisterDashboardAuthRoutes(v1, a.AuthHandler, a.AuthMW)
 
-	scope := api.Group("/projects/:projectId", a.AuthMW.RequireAuth(), middleware.ProjectGuard(a.DB.Pool))
+	// Project-scoped internal database services
+	scope := v1.Group("/projects/:projectId", a.AuthMW.RequireAuth(), middleware.ProjectGuard(a.DB.Pool))
 
 	dashRoutes.RegisterDashboardRoutes(scope, a.DashHandler, a.AuthMW)
 	explorerRoutes.RegisterExplorerRoutes(scope, a.ExplorerHandler, a.AuthMW)
@@ -84,6 +87,14 @@ func main() {
 	logsRoutes.RegisterLogsRoutes(scope, a.LogsHandler, a.AuthMW)
 	storageRoutes.RegisterStorageRoutes(scope, a.StorageHandler, a.AuthMW)
 
+	// Dashboard also manages projects
+	projectsRoutes.RegisterProjectsRoutes(v1, a.ProjectsHandler, a.AuthMW)
+	walletRoutes.RegisterWalletRoutes(v1, a.WalletHandler, a.AuthMW)
+
+	// Audit (global, not scoped to projects)
+	auditRoutes.RegisterAuditRoutes(v1, a.AuditHandler, a.AuthMW)
+
+	// Svelte frontend
 	if _, err := os.Stat("./dashboard/build"); err == nil {
 		f.Use("/", filesystem.New(filesystem.Config{
 			Root:         http.Dir("./dashboard/build"),
@@ -104,7 +115,7 @@ func main() {
 
 	go func() {
 		addr := a.Config.Addr()
-		slog.Info("Dashboard server starting", "address", addr)
+		slog.Info("Nexbic Dashboard starting", "address", addr)
 		if err := f.Listen(addr); err != nil {
 			slog.Error("Dashboard server error", "error", err)
 			os.Exit(1)
@@ -112,7 +123,7 @@ func main() {
 	}()
 
 	sig := <-quit
-	slog.Info("shutting down dashboard server", "signal", sig)
+	slog.Info("shutting down Nexbic Dashboard", "signal", sig)
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), a.Config.Server.ShutdownTimeout)
 	defer shutdownCancel()

@@ -12,11 +12,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/nexbic/platform/internal/app"
-	authRoutes "github.com/nexbic/platform/internal/auth/routes"
+	authRoutes "github.com/nexbic/platform/internal/identity/auth/routes"
 	filesRoutes "github.com/nexbic/platform/internal/files/routes"
 	"github.com/nexbic/platform/internal/middleware"
 	projectsRoutes "github.com/nexbic/platform/internal/projects/routes"
-	walletRoutes "github.com/nexbic/platform/internal/wallet/routes"
+	walletRoutes "github.com/nexbic/platform/internal/identity/wallet/routes"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 	f.Use(middleware.RateLimit(200, 1*time.Minute))
 
 	f.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "healthy", "service": "nexbic-api"})
+		return c.JSON(fiber.Map{"status": "healthy", "service": "nexbic-core"})
 	})
 	f.Get("/ready", func(c *fiber.Ctx) error {
 		if err := a.DB.Ping(ctx); err != nil {
@@ -52,15 +52,11 @@ func main() {
 		}
 		return c.JSON(fiber.Map{"status": "ready"})
 	})
-	f.Get("/", func(c *fiber.Ctx) error {
-		return c.Redirect("/docs/", fiber.StatusFound)
-	})
 
 	api := f.Group("/v1")
 
 	authRoutes.RegisterAuthRoutes(api, a.AuthHandler, a.AuthMW)
 	projectsRoutes.RegisterProjectsRoutes(api, a.ProjectsHandler, a.AuthMW)
-
 	walletRoutes.RegisterWalletRoutes(api, a.WalletHandler, a.AuthMW)
 	filesRoutes.RegisterFilesRoutes(api, a.FilesHandler, a.AuthMW)
 
@@ -81,7 +77,7 @@ func main() {
 
 	go func() {
 		addr := a.Config.Addr()
-		slog.Info("API server starting", "address", addr)
+		slog.Info("Nexbic Core API starting", "address", addr)
 		if err := f.Listen(addr); err != nil {
 			slog.Error("API server error", "error", err)
 			os.Exit(1)
@@ -89,7 +85,7 @@ func main() {
 	}()
 
 	sig := <-quit
-	slog.Info("shutting down API server", "signal", sig)
+	slog.Info("shutting down Nexbic Core API", "signal", sig)
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), a.Config.Server.ShutdownTimeout)
 	defer shutdownCancel()
